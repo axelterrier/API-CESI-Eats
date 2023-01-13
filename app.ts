@@ -3,7 +3,6 @@
 require("dotenv").config();
 require("./config/mongoose").connect();
 
-const cors = require('cors');
 const { config } = require("./config/SQLServer");
 const { exit } = require("process");
 const { default: jwtDecode } = require("jwt-decode");
@@ -26,20 +25,19 @@ const swaggerOptions = {
   swaggerDefinition: {
     info: {
       title: "API Client",
-      contact:{
-        name:"UwU Eats"
+      contact: {
+        name: "UwU Eats"
       },
-      servers:["https://localhost:8888"]
+      servers: ["https://localhost:8888"]
     }
   },
   // on donne l'endroit ou sont les routes
-  apis:["app.ts"]
+  apis: ["app.ts"]
 };
 
 const swaggerDocs = swaggerJsDoc(swaggerOptions)
 //#endregion
 
-app.use(cors({ origin: '*', methods: "GET,HEAD,PUT,PATCH,POST,DELETE", allowedHeaders: "*" }));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
 app.use(cookieParser());
@@ -193,7 +191,7 @@ app.post("/register/client", async (req, res) => {
  *        password:
  *          type: string
  */
-app.post("/login", async (req, res) => {
+app.post("/login/client", async (req, res) => {
   let data = req.body;
   let pool = await sql.connect(config);
 
@@ -215,6 +213,21 @@ app.post("/login", async (req, res) => {
 
     res.cookie('token', token, { httpOnly: true, maxAge: expirationTime * 1000 }).send("Connecté !").end();
   });
+});
+
+/**
+ * @swagger
+ * /logout:
+ *   post:
+ *     tags:
+ *       - Utilisateurs
+ *     description: Déconnecte un utilisateur.
+ *     responses:
+ *       200:
+ *         description: Déconnecté avec succès
+ */
+app.post("/logout", (req, res) => {
+  res.clearCookie("token").send("Déconnecté !");
 });
 
 //Changement de mot de passe de l'addresse mail contenue dans le token utilisateur
@@ -270,7 +283,7 @@ app.put("/updatePassword", async (req, res) => {
   });
 });
 
-//Lecture des informations de l'utilisateur
+//Lecture des informations de l'utilisateur connecté indépendamment du role
 /**
  * @swagger
  * /user:
@@ -348,7 +361,7 @@ app.delete("/client", async (req, res) => {
     const result = await requestSelect.query("SELECT id_person FROM dbo.person WHERE email = @email");
     request.input('email', sql.VarChar, email);
     console.log(result.recordset[0].id_person)
-    requestClient.input('id_person',sql.Int, result.recordset[0].id_person);
+    requestClient.input('id_person', sql.Int, result.recordset[0].id_person);
     await requestClient.query("DELETE FROM dbo.client WHERE id_person = @id_person;")
     await request.query("DELETE FROM dbo.person WHERE email = @email;")
     res.status(200).send(`Le compte lié à l'address : ${email} a bien été supprimé`);
@@ -373,11 +386,11 @@ app.delete("/client/:email", async (req, res) => {
     request.input('email', sql.VarChar, email);
     console.log(result.recordset[0].id_person)
 
-    requestClient.input('id_person',sql.Int, result.recordset[0].id_person);
+    requestClient.input('id_person', sql.Int, result.recordset[0].id_person);
 
     await requestClient.query("DELETE FROM dbo.client WHERE id_person = @id_person;")
     await request.query("DELETE FROM dbo.person WHERE email = @email;")
-    
+
     res.status(200).send(`Le compte lié à l'address : ${email} a bien été supprimé`);
     sql.close()
   } catch (err) {
@@ -448,8 +461,6 @@ app.put("/user", async (req, res) => {
   });
 });
 
-
-
 //#endregion
 
 //#region crud menu
@@ -512,6 +523,7 @@ app.put("/user", async (req, res) => {
  *               type: string
  */
 app.post("/menu", async (req, res) => {
+  checkToken(req,res)
   const newMenu = new Menu(req.body);
   try {
     let menuNumber = await Menu.estimatedDocumentCount();
@@ -559,6 +571,7 @@ app.post("/menu", async (req, res) => {
  *         type: number
  */
 app.get('/restaurants', function (req, res) {
+  checkToken(req,res)
   Menu.find((err, restaurants) => {
     if (err) return handleError(err);
     res.send(restaurants);
@@ -590,6 +603,7 @@ app.get('/restaurants', function (req, res) {
  *               example: handleError
  */
 app.get('/restaurants/:id', function (req, res) {
+  checkToken(req,res)
   const menuId = req.params.id
   Menu.findOne({ id: menuId }, (err, restaurant) => {
     if (err) return handleError(err);
@@ -644,6 +658,7 @@ app.get('/restaurants/:id', function (req, res) {
  *               example: Menu not found
  */
 app.put("/menu/:id", async (req, res) => {
+  checkToken(req,res)
   try {
     const menu = await Menu.findOneAndUpdate({ id: req.params.id }, req.body, { new: true });
     if (!menu) {
@@ -706,6 +721,7 @@ app.put("/menu/:id", async (req, res) => {
  *               example: handleError
  */
 app.delete('/menu/:id', async function (req, res) {
+  checkToken(req,res)
   try {
     const menuId = req.params.id
     Menu.findOne({ id: menuId }, (err, restaurant) => {
@@ -789,6 +805,7 @@ app.delete('/menu/:id', async function (req, res) {
  *         type: string
  */
 app.post("/commande", async (req, res) => {
+  checkToken(req,res)
   try {
 
     // Crée un nouvel objet commande à partir des données de la requête
@@ -832,6 +849,7 @@ app.post("/commande", async (req, res) => {
  *               type: string
  */
 app.get("/commande/count", async (req, res) => {
+  checkToken(req,res)
   try {
     const count = await Commande.estimatedDocumentCount();
     res.json({ count });
@@ -873,6 +891,7 @@ app.get("/commande/count", async (req, res) => {
  *               type: string
  */
 app.get("/commande/count/:client", async (req, res) => {
+  checkToken(req,res)
   try {
     const count = await Commande.countDocuments({ client: req.params.client });
     res.json({ count });
@@ -921,6 +940,7 @@ app.get("/commande/count/:client", async (req, res) => {
  *               type: string
  */
 app.get("/commande/:idCommande/status", async (req, res) => {
+  checkToken(req,res)
   try {
     const idCommande = req.params.idCommande;
     const commande = await Commande.findOne({ idCommande });
@@ -1015,6 +1035,7 @@ app.get("/commande/:idCommande/status", async (req, res) => {
  *         type: string
  */
 app.put("/commande/:id", async (req, res) => {
+  checkToken(req,res)
   try {
     // Récupère l'id de la commande à mettre à jour à partir de la requête
     let id = req.params.id;
@@ -1040,88 +1061,135 @@ app.put("/commande/:id", async (req, res) => {
 });
 
 
-//Récupère le code de parrainage de l'utilisateur connecté (si le code n'existe pas il est généré)
-//Il faut que la "person" soit renseigné dans la table "client"
+//Récupère (ou crée si code inexistant) le code de parrainage de l'utilisateur connecté (peut importer son role)
 /**
  * @swagger
  * /sponsorship:
- *   get:
- *     tags:
- *       - Utilisateurs
- *     description: Returns sponsorship code
- *     produces:
- *       - application/json
- *     security:
- *      - bearerAuth: []
- *     responses:
- *       200:
- *         description: Sponsorship code retrieved successfully
- *         schema:
- *           type: object
- *           properties:
- *             sponsorshipId:
- *               type: string
- *               example: "5678"
- *       404:
- *         description: person not found
- *         schema:
- *           type: object
- *           properties:
- *             message:
- *               type: string
- *               example: personne non trouvée
- *       500:
- *         description: Internal server error
- *         schema:
- *           type: object
- *           properties:
- *             message:
- *               type: string
- *               example: "Internal server error"
+ *  get:
+ *    tags:
+ *      - Utilisateurs
+ *    description: Récupère le code de parrainage de l'utilisateur connecté
+ *    responses:
+ *      200:
+ *        description: Code de parrainage récupéré avec succès
+ *        content:
+ *          application/json:
+ *            schema:
+ *              type: object
+ *              properties:
+ *                sponsorshipId:
+ *                  type: string
+ *      404:
+ *        description: Utilisateur non trouvé
+ *    security:
+ *      - token: []
  */
 app.get("/sponsorship", async (req, res) => {
+  checkToken(req,res)
   let decodedToken = getInfoToken(req, res)
   let email = decodedToken.email
 
   try {
     let pool = await sql.connect(config);
     const requestSelect = pool.request();
-    const requestSelectClient = pool.request();
+    
 
     requestSelect.input("email", sql.VarChar, email);
-    const result = await requestSelect.query("SELECT id_person FROM dbo.person WHERE email = @email");
+    const result = await requestSelect.query("SELECT id_person, role FROM dbo.person WHERE email = @email");
+    const role = result.recordset[0].role
 
-    requestSelectClient.input("id_person", sql.Int, result.recordset[0].id_person);
-    const client = await requestSelectClient.query("SELECT code_parrainage FROM dbo.client WHERE id_person = @id_person");
-
-    if(!result.recordset[0]) {
+    if (!result.recordset[0]) {
       res.status(404).json({ message: "personne non trouvée" });
       return;
     }
 
-    console.log(client.recordset[0].code_parrainage)
-
-    if (client.recordset[0].code_parrainage == null || client.recordset[0].code_parrainage === "") {
-      // le champ est null ou un string vide
-      console.log("champ null ou vide")
-      const randomString = Math.random().toString(36).slice(-4);
-      const sponsorshipId = result.recordset[0].id_person + randomString;
-
-      const insert = pool.request();
-      insert.input("code_parrainage", sql.VarChar, sponsorshipId)
-      insert.input("id_person", sql.Int, result.recordset[0].id_person)
-
-      await insert.query(
-        "UPDATE dbo.client SET code_parrainage = @code_parrainage WHERE id_person = @id_person"
-      );
-      return res.status(200).json({ sponsorshipId });
-    } else {
-      // le champ contient une valeur
-      console.log("champ rempli")
-      const sponsorship = client.recordset[0].code_parrainage
-      return res.status(200).json({ sponsorship });
-    }
+    switch (role) {
+      case 1:
+        const requestSelectClient = pool.request();
+        requestSelectClient.input("id_person", sql.Int, result.recordset[0].id_person);
+        const client = await requestSelectClient.query("SELECT code_parrainage FROM dbo.client WHERE id_person = @id_person");
+        if (client.recordset[0].code_parrainage == null || client.recordset[0].code_parrainage === "") {
+          // le champ est null ou un string vide
+          console.log("champ null ou vide")
+          const randomString = Math.random().toString(36).slice(-4);
+          const sponsorshipId = result.recordset[0].id_person + randomString;
     
+          const insert = pool.request();
+          insert.input("code_parrainage", sql.VarChar, sponsorshipId)
+          insert.input("id_person", sql.Int, result.recordset[0].id_person)
+    
+          await insert.query(
+            "UPDATE dbo.client SET code_parrainage = @code_parrainage WHERE id_person = @id_person"
+          );
+          return res.status(200).json({ sponsorshipId });
+        } else {
+          // le champ contient une valeur
+          console.log("champ rempli")
+          const sponsorship = client.recordset[0].code_parrainage
+          return res.status(200).json({ sponsorship });
+        }
+        break;
+      case 2:
+        const requestSelectRestaurant = pool.request();
+        requestSelectRestaurant.input("id_person", sql.Int, result.recordset[0].id_person);
+        const restaurateur = await requestSelectRestaurant.query("SELECT code_parrainage FROM dbo.restaurateur WHERE id_restaurant = @id_person");
+        if (restaurateur.recordset[0].code_parrainage == null || restaurateur.recordset[0].code_parrainage === "" || restaurateur.recordset[0].code_parrainage == 0) {
+          // le champ est null ou un string vide
+          console.log("champ null ou vide")
+          const randomString = Math.random().toString(36).slice(-4);
+          const sponsorshipId = result.recordset[0].id_person + randomString;
+    
+          const insert = pool.request();
+          insert.input("code_parrainage", sql.VarChar, sponsorshipId)
+          insert.input("id_person", sql.Int, result.recordset[0].id_person)
+    
+          await insert.query(
+            "UPDATE dbo.restaurateur SET code_parrainage = @code_parrainage WHERE id_restaurant = @id_person"
+          );
+          return res.status(200).json({ sponsorshipId });
+        } else {
+          // le champ contient une valeur
+          console.log("champ rempli")
+          const sponsorship = restaurateur.recordset[0].code_parrainage
+          return res.status(200).json({ sponsorship });
+        }
+        break;
+      case 3:
+        const requestSelectDeliverer = pool.request();
+        requestSelectDeliverer.input("id_person", sql.Int, result.recordset[0].id_person);
+        const livreur = await requestSelectDeliverer.query("SELECT code_parrainage FROM dbo.deliverer WHERE id_person = @id_person");
+        if (livreur.recordset[0].code_parrainage == null || livreur.recordset[0].code_parrainage === "" || livreur.recordset[0].code_parrainage == 0) {
+          // le champ est null ou un string vide
+          console.log("champ null ou vide")
+          const randomString = Math.random().toString(36).slice(-4);
+          const sponsorshipId = result.recordset[0].id_person + "-" + randomString;
+    
+          const insert = pool.request();
+          insert.input("code_parrainage", sql.VarChar, sponsorshipId)
+          insert.input("id_person", sql.Int, result.recordset[0].id_person)
+    
+          await insert.query(
+            "UPDATE dbo.deliverer SET code_parrainage = @code_parrainage WHERE id_person = @id_person"
+          );
+          return res.status(200).json({ sponsorshipId });
+        } else {
+          // le champ contient une valeur
+          console.log("champ rempli")
+          const sponsorship = livreur.recordset[0].code_parrainage
+          return res.status(200).json({ sponsorship });
+        }
+        break;
+    
+      default:
+        break;
+    }
+
+    
+    
+
+
+    
+
     sql.close()
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -1163,8 +1231,8 @@ app.get("/sponsorship", async (req, res) => {
 app.get("/restaurant/:id/stats/countAllTime", async (req, res) => {
   try {
     const id = req.params.id
-    const countAllTime = await Commande.countDocuments({"restaurant":id});
-    res.json({ countAllTime});
+    const countAllTime = await Commande.countDocuments({ "restaurant": id });
+    res.json({ countAllTime });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -1203,9 +1271,9 @@ app.get("/restaurant/:id/stats/count24h", async (req, res) => {
     const twentyFourHoursAgo = new Date(Date.now() - (24 * 60 * 60 * 1000));
     const countLast24h = await Commande.countDocuments({
       "restaurant": id,
-      "date": {$gt: twentyFourHoursAgo}
+      "date": { $gt: twentyFourHoursAgo }
     });
-    
+
     res.json({ countLast24h });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -1245,7 +1313,7 @@ app.get("/restaurant/:id/stats/count72h", async (req, res) => {
     const seventyTwoHoursAgo = new Date(Date.now() - (72 * 60 * 60 * 1000));
     const countLast72h = await Commande.countDocuments({
       "restaurant": id,
-      "date": {$gt: seventyTwoHoursAgo}
+      "date": { $gt: seventyTwoHoursAgo }
     });
     res.json({ countLast72h });
   } catch (err) {
@@ -1286,7 +1354,7 @@ app.get("/restaurant/:id/stats/count7days", async (req, res) => {
     const sevenDaysAgo = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000));
     const countLast7days = await Commande.countDocuments({
       "restaurant": id,
-      "date": {$gt: sevenDaysAgo}
+      "date": { $gt: sevenDaysAgo }
     });
     res.json({ countLast7days });
   } catch (err) {
@@ -1329,9 +1397,9 @@ app.get("/client/:id/stats/count24h", async (req, res) => {
     const twentyFourHoursAgo = new Date(Date.now() - (24 * 60 * 60 * 1000));
     const countLast24h = await Commande.countDocuments({
       "client": id,
-      "date": {$gt: twentyFourHoursAgo}
+      "date": { $gt: twentyFourHoursAgo }
     });
-    
+
     res.json({ countLast24h });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -1371,7 +1439,7 @@ app.get("/client/:id/stats/count72h", async (req, res) => {
     const seventyTwoHoursAgo = new Date(Date.now() - (72 * 60 * 60 * 1000));
     const countLast72h = await Commande.countDocuments({
       "client": id,
-      "date": {$gt: seventyTwoHoursAgo}
+      "date": { $gt: seventyTwoHoursAgo }
     });
     res.json({ countLast72h });
   } catch (err) {
@@ -1412,7 +1480,7 @@ app.get("/client/:id/stats/count7days", async (req, res) => {
     const sevenDaysAgo = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000));
     const countLast7days = await Commande.countDocuments({
       "client": id,
-      "date": {$gt: sevenDaysAgo}
+      "date": { $gt: sevenDaysAgo }
     });
     res.json({ countLast7days });
   } catch (err) {
@@ -1422,31 +1490,31 @@ app.get("/client/:id/stats/count7days", async (req, res) => {
 
 
 //Get graph UwU A TESTER
-app.get("/commandes/stats/graph", async (req, res) => {
-  try {
-    // Obtenir les commandes dans les 7 derniers jours
-    const sevenDaysAgo = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000));
-    const commandes = await Commande.find({
-      "date": { $gt: sevenDaysAgo }
-    });
-    
-    // Compter le nombre de commandes par jour
-    const commandesByDay = {};
-    commandes.forEach(commande => {
-      const date = new Date(commande.date);
-      const day = date.toLocaleDateString();
-      if (commandesByDay[day]) {
-        commandesByDay[day]++;
-      } else {
-        commandesByDay[day] = 1;
-      }
-    });
-    
-    res.json(commandesByDay);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
+// app.get("/commandes/stats/graph", async (req, res) => {
+//   try {
+//     // Obtenir les commandes dans les 7 derniers jours
+//     const sevenDaysAgo = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000));
+//     const commandes = await Commande.find({
+//       "date": { $gt: sevenDaysAgo }
+//     });
+
+//     // Compter le nombre de commandes par jour
+//     const commandesByDay = {};
+//     commandes.forEach(commande => {
+//       const date = new Date(commande.date);
+//       const day = date.toLocaleDateString();
+//       if (commandesByDay[day]) {
+//         commandesByDay[day]++;
+//       } else {
+//         commandesByDay[day] = 1;
+//       }
+//     });
+
+//     res.json(commandesByDay);
+//   } catch (err) {
+//     res.status(500).json({ message: err.message });
+//   }
+// });
 
 //#endregion
 
@@ -1593,7 +1661,736 @@ app.post("/login/restaurateur", async (req, res) => {
   });
 });
 
-/* CONTINUE LE CRUD AXEL*/
+//Mise à jour du nom du restaurant
+/**
+ * @swagger
+ * /restaurant/name:
+ *   put:
+ *     tags:
+ *       - Restaurateur
+ *     description: Met à jour les informations du restaurant.
+ *     parameters:
+ *       - name: email
+ *         in: query
+ *         description: Email de l'utilisateur connecté.
+ *         required: true
+ *         type: string
+ *       - name: restaurant_name
+ *         in: body
+ *         description: Nom du restaurant.
+ *         required: true
+ *         type: string
+ *     responses:
+ *       200:
+ *         description: Informations mises à jour avec succès
+ *       500:
+ *         description: Erreur lors de la mise à jour des informations
+ */
+app.put("/restaurant/name", async (req, res) => {
+  checkToken(req,res)
+  let data = req.body;
+
+  let decodedToken = getInfoToken(req, res)
+  let email = decodedToken.email;
+  let restaurant_name = data.restaurant_name
+
+  let pool = await sql.connect(config);
+  const requestSelect = pool.request();
+
+  requestSelect.input("email", sql.VarChar, email);
+
+  const result = await requestSelect.query("SELECT id_person FROM dbo.person WHERE email = @email");
+  const id_restaurant = result.recordset[0].id_person
+  // Met à jour les informations de l'utilisateur
+  const request = pool.request();
+  request.input('email', sql.VarChar, email);
+  request.input('restaurant_name', sql.VarChar, restaurant_name);
+  request.input('id_restaurant', sql.Int, id_restaurant);
+
+  request.query("UPDATE dbo.restaurateur SET restaurant_name = @restaurant_name WHERE id_restaurant = @id_restaurant", (err, result) => {
+    if (err) {
+      return res.status(500).send(err);
+    }
+    res.status(200).send(`Informations mises à jour avec succès`);
+  });
+});
+
+//Suppression du compte restaurateur actuellement connecté
+/**
+ * @swagger
+ * /restaurateur:
+ *   delete:
+ *     tags:
+ *       - Restaurateur
+ *     description: Supprime un restaurateur.
+ *     parameters:
+ *       - name: email
+ *         in: query
+ *         description: Email de l'utilisateur connecté.
+ *         required: true
+ *         type: string
+ *     responses:
+ *       200:
+ *         description: Compte supprimé avec succès
+ *       500:
+ *         description: Erreur lors de la suppression du compte
+ */
+app.delete("/restaurateur", async (req, res) => {
+  checkToken(req,res)
+  try {
+    let pool = await sql.connect(config);
+    const request = pool.request();
+    const requestClient = pool.request();
+    let decodedToken = getInfoToken(req, res);
+    let email = decodedToken.email
+    const requestSelect = pool.request();
+    requestSelect.input("email", sql.VarChar, email);
+    const result = await requestSelect.query("SELECT id_person FROM dbo.person WHERE email = @email");
+    request.input('email', sql.VarChar, email);
+    console.log(result.recordset[0].id_person)
+    requestClient.input('id_restaurant', sql.Int, result.recordset[0].id_person);
+    await requestClient.query("DELETE FROM dbo.restaurateur WHERE id_restaurant = @id_restaurant;")
+    await request.query("DELETE FROM dbo.person WHERE email = @email;")
+    res.status(200).send(`Le compte lié à l'address : ${email} a bien été supprimé`);
+    sql.close()
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+//Supprimer un restaurateur spécifique
+/**
+ * @swagger
+ * /restaurateur/{email}:
+ *   delete:
+ *     tags:
+ *       - Restaurateur
+ *     description: Supprime un restaurateur.
+ *     parameters:
+ *       - name: email
+ *         in: path
+ *         description: Email de l'utilisateur connecté.
+ *         required: true
+ *         type: string
+ *     responses:
+ *       200:
+ *         description: Compte supprimé avec succès
+ *       500:
+ *         description: Erreur lors de la suppression du compte
+ */
+app.delete("/restaurateur/:email", async (req, res) => {
+  checkToken(req,res)
+  try {
+    let pool = await sql.connect(config);
+    const request = pool.request();
+    const requestClient = pool.request();
+    let decodedToken = getInfoToken(req, res);
+    let email = req.params.email
+    const requestSelect = pool.request();
+    requestSelect.input("email", sql.VarChar, email);
+    const result = await requestSelect.query("SELECT id_person FROM dbo.person WHERE email = @email");
+    request.input('email', sql.VarChar, email);
+    console.log(result.recordset[0].id_person)
+    requestClient.input('id_restaurant', sql.Int, result.recordset[0].id_person);
+    await requestClient.query("DELETE FROM dbo.restaurateur WHERE id_restaurant = @id_restaurant;")
+    await request.query("DELETE FROM dbo.person WHERE email = @email;")
+    res.status(200).send(`Le compte lié à l'address : ${email} a bien été supprimé`);
+    sql.close()
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+//#endregion
+
+//#region api livreur
+
+//Inscrit un nouveau livreur
+/**
+ * @swagger
+ * /register/livreur:
+ *   post:
+ *     tags:
+ *       - Livreur
+ *     description: Register a new livreur
+ *     consumes:
+ *       - application/json
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *       - name: livreur
+ *         description: Livreur object
+ *         in: body
+ *         required: true
+ *         schema:
+ *           $ref: '#/definitions/Livreur'
+ *     responses:
+ *       200:
+ *         description: Successfully registered
+ *       400:
+ *         description: Email already in use
+ *       500:
+ *         description: Internal server error
+ */
+/**
+ * @swagger
+ * definitions:
+ *   Livreur:
+ *     type: object
+ *     required:
+ *       - name
+ *       - phone_number
+ *       - email
+ *       - password
+ *     properties:
+ *       name:
+ *         type: string
+ *       email:
+ *         type: string
+ *         format: email
+ *       phone_number:
+ *          type: string
+ *          format: phone_number
+ *       password:
+ *         type: string
+ *         format: password
+ */
+app.post("/register/livreur", async (req, res) => {
+  checkToken(req,res)
+  try {
+    let data = req.body;
+    let pool = await sql.connect(config);
+    let userAlreadyExist = false;
+
+    const requestSelect = pool.request();
+    requestSelect.input("email", sql.VarChar, data.email);
+    const result = await requestSelect.query(
+      "SELECT COUNT (*) AS compte FROM dbo.person WHERE email = @email"
+    );
+    if (parseInt(JSON.stringify(result.recordset[0].compte)) != 0) {
+      userAlreadyExist = true;
+    }
+
+    if (userAlreadyExist) {
+      res
+        .status(400)
+        .send(`L'addresse mail : "${data.email}" est déjà utilisée, veuillez vous connecter`)
+        .end();
+    } else {
+      let encryptedPassword = await bcrypt.hash(data.password, 10);
+
+      const request = pool.request();
+      request.input("name", sql.VarChar, data.name);
+      request.input("phone_number", sql.Int, data.phone_number);
+      request.input("email", sql.VarChar, data.email);
+      request.input("password", sql.VarChar, encryptedPassword);
+      await request.query(
+        "INSERT INTO dbo.person(name, phone_number, email, password, role) VALUES (@name, @phone_number, @email, @password, 3)"
+      );
+
+
+      const requestSelect = pool.request();
+      requestSelect.input("email", sql.VarChar, data.email);
+      const result = await requestSelect.query("SELECT id_person FROM dbo.person WHERE email = @email");
+
+      console.log(result.recordset[0].id_person)
+
+
+      const requestClient = pool.request();
+      requestClient.input("id_person", sql.Int, result.recordset[0].id_person);
+      await requestClient.query(
+        "INSERT INTO dbo.deliverer (id_person, code_parrainage, statut_activite) VALUES (@id_person, '', 0)"
+      );
+      const expirationTime = 5 * 24 * 60 * 60; // 5 jours en secondes
+      const token = jwt.sign({ email: data.email }, process.env.TOKEN_KEY, { expiresIn: expirationTime });
+      res.cookie('token', token, { httpOnly: true, maxAge: expirationTime * 1000 }).send("Inscris !").end();
+    }
+  } catch (error) {
+    res.status(500).send(error).end();
+  }
+});
+
+//Permets à un livreur de se connecter (fonction redondante)
+/**
+ * @swagger
+ * /login/livreur:
+ *   post:
+ *     tags:
+ *       - Livreur
+ *     description: Permet à un livreur de se connecter
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *       - name: email
+ *         description: Adresse mail du livreur
+ *         in: body
+ *         required: true
+ *         type: string
+ *       - name: password
+ *         description: Mot de passe du livreur
+ *         in: body
+ *         required: true
+ *         type: string
+ *     responses:
+ *       200:
+ *         description: Connexion réussie
+ *       400:
+ *         description: Adresse mail non existante ou mot de passe invalide
+ *       500:
+ *         description: Erreur interne du serveur
+ */
+app.post("/login/livreur", async (req, res) => {
+  checkToken(req,res)
+  let data = req.body;
+  let pool = await sql.connect(config);
+
+  const request = pool.request();
+  request.input('email', sql.VarChar, data.email);
+  request.query("SELECT email, password FROM dbo.person WHERE email = @email", (err, result) => {
+    if (err) {
+      return res.status(500).send(err);
+    }
+    if (result.recordset.length == 0) {
+      return res.status(400).send("Adresse mail non existante");
+    }
+    const validPassword = bcrypt.compareSync(data.password, result.recordset[0].password);
+    if (!validPassword) {
+      return res.status(400).send('Mot de passe invalide');
+    }
+    const expirationTime = 5 * 24 * 60 * 60; // 5 jours en secondes
+    const token = jwt.sign({ email: data.email }, process.env.TOKEN_KEY, { expiresIn: expirationTime });
+
+    res.cookie('token', token, { httpOnly: true, maxAge: expirationTime * 1000 }).send("Connecté !").end();
+  });
+});
+
+/**
+ * @swagger
+ * /livreur/activite:
+ *   put:
+ *     tags:
+ *       - Livreur
+ *     description: Modification de l'activité d'un livreur
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *       - name: body
+ *         description: Objet JSON contenant le statut d'activité (actif ou inactif)
+ *         in: body
+ *         required: true
+ *         schema:
+ *           $ref: '#/definitions/StatutActivite'
+ *     responses:
+ *       200:
+ *         description: Informations mises à jour avec succès
+ *       500:
+ *         description: Erreur lors de la mise à jour des informations
+ */
+/**
+ * Definition of the StatutActivite object
+ * @typedef {Object} StatutActivite
+ * @property {string} statut_activite - Statut d'activité (actif ou inactif)
+ */
+app.put("/livreur/activite", async (req, res) => {
+  checkToken(req,res)
+  let data = req.body;
+
+  let decodedToken = getInfoToken(req, res)
+  let email = decodedToken.email;
+  let statut_activite = data.statut_activite
+
+  let pool = await sql.connect(config);
+  const requestSelect = pool.request();
+
+  requestSelect.input("email", sql.VarChar, email);
+
+  const result = await requestSelect.query("SELECT id_person FROM dbo.person WHERE email = @email");
+  const id_person = result.recordset[0].id_person
+  // Met à jour les informations de l'utilisateur
+  const request = pool.request();
+  request.input('email', sql.VarChar, email);
+  request.input('statut_activite', sql.VarChar, statut_activite);
+  request.input('id_person', sql.Int, id_person);
+
+  request.query("UPDATE dbo.deliverer SET statut_activite = @statut_activite WHERE id_person = @id_person", (err, result) => {
+    if (err) {
+      return res.status(500).send(err);
+    }
+    res.status(200).send(`Informations mises à jour avec succès`);
+  });
+});
+
+/**
+ * @swagger
+ * /livreur:
+ *    delete:
+ *      tags:
+ *        - Livreur
+ *      description: Supprime un livreur
+ *      produces:
+ *        - application/json
+ *      responses:
+ *        200:
+ *          description: Le compte lié à l'adresse mail a été supprimé avec succès
+ *        400:
+ *          description: Erreur lors de la suppression du compte
+ */
+app.delete("/livreur", async (req, res) => {
+  checkToken(req,res)
+  try {
+    let pool = await sql.connect(config);
+    const request = pool.request();
+    const requestClient = pool.request();
+    let decodedToken = getInfoToken(req, res);
+    let email = decodedToken.email
+    const requestSelect = pool.request();
+    requestSelect.input("email", sql.VarChar, email);
+    const result = await requestSelect.query("SELECT id_person FROM dbo.person WHERE email = @email");
+    request.input('email', sql.VarChar, email);
+    console.log(result.recordset[0].id_person)
+    requestClient.input('id_person', sql.Int, result.recordset[0].id_person);
+    await requestClient.query("DELETE FROM dbo.deliverer WHERE id_person = @id_person;")
+    await request.query("DELETE FROM dbo.person WHERE email = @email;")
+    res.status(200).send(`Le compte lié à l'address : ${email} a bien été supprimé`);
+    sql.close()
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+//#endregion
+
+//#region api administrateur
+
+//Modifie un utilisateur spécifique
+/**
+ * @swagger
+ * /user/{email}:
+ *   put:
+ *     tags:
+ *       - Admin
+ *     description: Met à jour les informations d'un utilisateur.
+ *     parameters:
+ *       - name: email
+ *         in: path
+ *         description: Email de l'utilisateur à mettre à jour.
+ *         required: true
+ *         type: string
+ *       - name: surname
+ *         in: body
+ *         description: Nom de l'utilisateur.
+ *         required: true
+ *         type: string
+ *       - name: name
+ *         in: body
+ *         description: Prénom de l'utilisateur.
+ *         required: true
+ *         type: string
+ *       - name: birth
+ *         in: body
+ *         description: Date de naissance de l'utilisateur.
+ *         required: true
+ *         type: date
+ *       - name: phone_number
+ *         in: body
+ *         description: Numéro de téléphone de l'utilisateur.
+ *         required: true
+ *         type: integer
+ *     responses:
+ *       200:
+ *         description: Informations mises à jour avec succès
+ *       500:
+ *         description: Erreur lors de la mise à jour des informations
+ */
+app.put("/user/:email", checkTokenA, async (req, res) => {
+  let data = req.body;
+
+  let email = req.params.email;
+
+  let surname = data.surname;
+  let name = data.name;
+  let birth = new Date(data.birth)
+  let phone_number = data.phone_number;
+
+  let pool = await sql.connect(config);
+
+  // Met à jour les informations de l'utilisateur
+  const request = pool.request();
+  request.input('email', sql.VarChar, email);
+  request.input('surname', sql.VarChar, surname);
+  request.input('name', sql.VarChar, name);
+  request.input('birth', sql.Date, birth); //YYYY-MM-DD
+  request.input('phone_number', sql.Int, phone_number);
+
+  request.query("UPDATE dbo.person SET surname = @surname, name = @name, birth = @birth, phone_number = @phone_number WHERE email = @email", (err, result) => {
+    if (err) {
+      return res.status(500).send(err);
+    }
+    res.status(200).send(`Informations mises à jour avec succès`);
+  });
+});
+
+//Suppression d'un uilisateur spécifique
+/**
+ * @swagger
+ * /client/{email}:
+ *   delete:
+ *     tags:
+ *       - Admin
+ *     description: Supprime un client.
+ *     parameters:
+ *       - name: email
+ *         in: path
+ *         description: Email du client à supprimer.
+ *         required: true
+ *         type: string
+ *     responses:
+ *       200:
+ *         description: Compte supprimé avec succès
+ *       500:
+ *         description: Erreur lors de la suppression du compte
+ */
+app.delete("/client/:email", checkTokenA, async (req, res) => {
+  try {
+    let pool = await sql.connect(config);
+    const request = pool.request();
+    const requestClient = pool.request();
+    const email = req.params.email
+    const requestSelect = pool.request();
+
+    requestSelect.input("email", sql.VarChar, email);
+
+    const result = await requestSelect.query("SELECT id_person FROM dbo.person WHERE email = @email");
+
+    request.input('email', sql.VarChar, email);
+    console.log(result.recordset[0].id_person)
+
+    requestClient.input('id_person', sql.Int, result.recordset[0].id_person);
+
+    await requestClient.query("DELETE FROM dbo.client WHERE id_person = @id_person;")
+    await request.query("DELETE FROM dbo.person WHERE email = @email;")
+
+    res.status(200).send(`Le compte lié à l'address : ${email} a bien été supprimé`);
+    sql.close()
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+//Création d'un utilisateur et attribution de son role
+/**
+* @swagger
+* /register:
+*   post:
+*     tags:
+*       - Admin
+*     description: Inscrit un utilisateur
+*     produces:
+*       - application/json
+*     parameters:
+*       - name: body
+*         in: body
+*         schema:
+*           type: object
+*           properties:
+*             name:
+*               type: string
+*             phone_number:
+*               type: string
+*             email:
+*               type: string
+*             password:
+*               type: string
+*             role:
+*               type: number
+*         required:
+*           - name
+*           - phone_number
+*           - email
+*           - password
+*           - role
+*     responses:
+*       200:
+*         description: Utilisateur inscrit avec succès
+*       400:
+*         description: Adresse mail déjà utilisée
+*       500:
+*         description: Erreur lors de l'inscription de l'utilisateur
+*/
+app.post("/register/", checkTokenA, async (req, res) => {
+  try {
+    let data = req.body;
+    let pool = await sql.connect(config);
+    let userAlreadyExist = false;
+
+    const requestSelect = pool.request();
+    requestSelect.input("email", sql.VarChar, data.email);
+    const result = await requestSelect.query(
+      "SELECT COUNT (*) AS compte FROM dbo.person WHERE email = @email"
+    );
+    if (parseInt(JSON.stringify(result.recordset[0].compte)) != 0) {
+      userAlreadyExist = true;
+    }
+
+    if (userAlreadyExist) {
+      res
+        .status(400)
+        .send(`L'addresse mail : "${data.email}" est déjà utilisée, veuillez vous connecter`)
+        .end();
+    } else {
+      let encryptedPassword = await bcrypt.hash(data.password, 10);
+
+      const request = pool.request();
+      request.input("name", sql.VarChar, data.name);
+      request.input("phone_number", sql.VarChar, data.phone_number);
+      request.input("email", sql.VarChar, data.email);
+      request.input("password", sql.VarChar, encryptedPassword);
+      request.input("role", sql.Int, data.role)
+      await request.query(
+        "INSERT INTO dbo.person(name, phone_number, email, password, role) VALUES (@name, @phone_number, @email, @password, @role)"
+      );
+
+
+      const requestSelect = pool.request();
+      requestSelect.input("email", sql.VarChar, data.email);
+      const result = await requestSelect.query("SELECT id_person FROM dbo.person WHERE email = @email");
+
+      console.log(result.recordset[0].id_person)
+
+
+      const requestClient = pool.request();
+      requestClient.input("id_person", sql.Int, result.recordset[0].id_person);
+      await requestClient.query(
+        "INSERT INTO dbo.client (id_person, code_parrainage) VALUES (@id_person, '')"
+      );
+      const expirationTime = 5 * 24 * 60 * 60; // 5 jours en secondes
+      const token = jwt.sign({ email: data.email }, process.env.TOKEN_KEY, { expiresIn: expirationTime });
+      res.header('authorization', token)
+      res.cookie('token', token, { httpOnly: true, maxAge: expirationTime * 1000 }).send("Inscris !").end();
+    }
+  } catch (error) {
+    res.status(500).send(error).end();
+  }
+});
+
+/**
+ * @swagger
+ * /users:
+ *   get:
+ *     tags:
+ *       - Admin
+ *     description: Return all users
+ *     produces:
+ *       - application/json
+ *     responses:
+ *       200:
+ *         description: An array of users
+ *         schema:
+ *           type: array
+ *           items:
+ *             $ref: '#/definitions/User'
+ *       401:
+ *         description: Invalid token
+ *       403:
+ *         description: A token is required for authentication
+ *       500:
+ *         description: Internal server error
+ */
+/**
+ * @swagger
+ * definitions:
+ *   User:
+ *     type: object
+ *     properties:
+ *       surname:
+ *         type: string
+ *       name:
+ *         type: string
+ *       birth:
+ *         type: string
+ *         format: date
+ *       phone_number:
+ *         type: string
+ *       email:
+ *         type: string
+ *         format: email
+ */
+app.get('/users', checkTokenA, async (req, res) => {
+  let pool = await sql.connect(config);
+  const request = pool.request();
+  request.query("SELECT surname, name, birth, phone_number, email FROM dbo.person", (err, result) => {
+    if (err) {
+      return res.status(500).send(err);
+    }
+    return res.status(200).json(result.recordset);
+  });
+});
+
+
+//Supprime un utilisateur sans prendre en compte son role
+/**
+ * @swagger
+ * /user/{email}:
+ *    delete:
+ *      tags:
+ *        - Admin
+ *      description: delete a user by email
+ *      parameters:
+ *        - name: email
+ *          in: path
+ *          required: true
+ *          type: string
+ *      responses:
+ *        200:
+ *          description: user account deleted
+ *        500:
+ *          description: internal server error
+ */
+app.delete("/user/:email", checkTokenA, async (req, res) => {
+  try {
+    let pool = await sql.connect(config);
+    const request = pool.request();
+
+    const email = req.params.email
+    const requestSelect = pool.request();
+    request.input("email", sql.VarChar, email)
+    requestSelect.input("email", sql.VarChar, email);
+
+    const result = await requestSelect.query("SELECT id_person, role FROM dbo.person WHERE email = @email");
+
+    const role = result.recordset[0].role
+
+    switch (role) {
+      case 1:
+        const requestClient = pool.request();
+        requestClient.input('id_person', sql.Int, result.recordset[0].id_person);
+        requestClient.input('email', sql.VarChar, email);
+        await requestClient.query("DELETE FROM dbo.client WHERE id_person = @id_person;")
+        break;
+      case 2:
+        const requestRestaurant = pool.request();
+        requestRestaurant.input('id_restaurant', sql.Int, result.recordset[0].id_person);
+        requestRestaurant.input('email', sql.VarChar, email);
+        await requestRestaurant.query("DELETE FROM dbo.restaurateur WHERE id_restaurant = @id_restaurant")
+        break;
+      case 3:
+        const requestDeliverer = pool.request();
+        requestDeliverer.input('id_person', sql.Int, result.recordset[0].id_person);
+        requestDeliverer.input('email', sql.VarChar, email);
+        await requestDeliverer.query("DELETE FROM dbo.deliverer WHERE id_person = @id_person")
+        break;
+      default:
+        break;
+    }
+
+    await request.query("DELETE FROM dbo.person WHERE email = @email;")
+
+    res.status(200).send(`Le compte ${role} lié à l'address : ${email} a bien été supprimé`);
+    sql.close()
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
 //#endregion
 
@@ -1602,26 +2399,6 @@ app.post("/login/restaurateur", async (req, res) => {
 //#region fonction
 
 //Vérifie qu'un token existe et qu'y a pas d'erreur dans le token
-/**
- * @swagger
- * tags:
- *   - fonction
- * 
- * /checkToken:
- *   get:
- *     description: Check if token exists and is valid
- *     produces:
- *       - application/json
- *     responses:
- *       200:
- *         description: Token is valid
- *       401:
- *         description: Unauthorized - Invalid token
- *       403:
- *         description: A token is required for authentication
- *       400:
- *         description: Bad request
- */
 function checkToken(req, res) {
   const token = req.cookies['token']
 
@@ -1642,23 +2419,6 @@ function checkToken(req, res) {
 }
 
 //récupère et décode le token
-/**
- * @swagger
- * tags:
- *   - fonction
- * 
- * /getInfoToken:
- *   get:
- *     description: Decode token and get user's informations
- *     produces:
- *       - application/json
- *     responses:
- *       200:
- *         description: Token decoded successfully
- *       400:
- *         description: Invalid token
- *
- */
 function getInfoToken(req, res) {
   const token = req.cookies['token'];
   let decodedToken = jwt_decode(token);
@@ -1666,56 +2426,36 @@ function getInfoToken(req, res) {
 }
 
 //Vérifie l'ID du token et l'ID demandé dans l'URL correspond
-/**
- * @swagger
- * tags:
- *   - fonction
- * 
- * /checkIDToken:
- *   get:
- *     description: Check user's ID in the token
- *     produces:
- *       - application/json
- *     responses:
- *       200:
- *         description: ID found in the token
- *       400:
- *         description: Invalid token or ID not found
- *
- */
 function checkIDToken(req, res) {
   let decodedToken = JSON.stringify(getInfoToken(req, res).user.id);
 }
 
-/**
- * @swagger
- * tags:
- *   - fonction
- * 
- * /checkIfEmailExists:
- *   get:
- *     description: Check if email exists in database
- *     produces:
- *       - application/json
- *     parameters:
- *       - name: email
- *         in: query
- *         type: string
- *         required: true
- *         description: email to be checked
- *     responses:
- *       200:
- *         description: Email exists
- *       400:
- *         description: Email not found
- *
- */
 async function checkIfEmailExists(email) {
   let pool = await sql.connect(config);
   const request = pool.request();
   request.input('email', sql.VarChar, email);
   const result = await request.query("SELECT COUNT(*) as count FROM dbo.person WHERE email = @email");
   return result.recordset[0].count > 0;
+}
+
+function checkTokenA(req, res, next) {
+  const expirationTime = 5 * 24 * 60 * 60; // 5 jours en secondes
+  const tokenU = jwt.sign({}, process.env.TOKEN_KEY, { expiresIn: expirationTime });
+  res.header('authorization', tokenU)
+  const bearerHeader = req.headers['authorization'];
+  if (!bearerHeader) {
+    console.log("JWT n'existe pas ");
+    return res.status(403).json({ message: "A token is required for authentication" });
+  }
+  const token = bearerHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, process.env.TOKEN_KEY);
+    console.log('JWT est valide:', decoded);
+    next();
+  } catch (err) {
+    console.log('JWT est invalide:', err);
+    return res.status(401).json({ message: "Invalid token" });
+  }
 }
 //#endregion
 
