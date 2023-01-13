@@ -336,7 +336,7 @@ app.get("/user", async (req, res) => {
  *       500:
  *         description: Erreur interne du serveur
  */
-app.delete("/user", async (req, res) => {
+app.delete("/client", async (req, res) => {
   try {
     let pool = await sql.connect(config);
     const request = pool.request();
@@ -351,6 +351,33 @@ app.delete("/user", async (req, res) => {
     requestClient.input('id_person',sql.Int, result.recordset[0].id_person);
     await requestClient.query("DELETE FROM dbo.client WHERE id_person = @id_person;")
     await request.query("DELETE FROM dbo.person WHERE email = @email;")
+    res.status(200).send(`Le compte lié à l'address : ${email} a bien été supprimé`);
+    sql.close()
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+app.delete("/client/:email", async (req, res) => {
+  try {
+    let pool = await sql.connect(config);
+    const request = pool.request();
+    const requestClient = pool.request();
+    const email = req.params.email
+    const requestSelect = pool.request();
+
+    requestSelect.input("email", sql.VarChar, email);
+
+    const result = await requestSelect.query("SELECT id_person FROM dbo.person WHERE email = @email");
+
+    request.input('email', sql.VarChar, email);
+    console.log(result.recordset[0].id_person)
+
+    requestClient.input('id_person',sql.Int, result.recordset[0].id_person);
+
+    await requestClient.query("DELETE FROM dbo.client WHERE id_person = @id_person;")
+    await request.query("DELETE FROM dbo.person WHERE email = @email;")
+    
     res.status(200).send(`Le compte lié à l'address : ${email} a bien été supprimé`);
     sql.close()
   } catch (err) {
@@ -1423,9 +1450,150 @@ app.get("/commandes/stats/graph", async (req, res) => {
 
 //#endregion
 
-//#region api livreur
+//#region api restaurateur
+
+//S'inscrire en tant que restaurateur
+/**
+ * @swagger
+ * /register/restaurateur:
+ *   post:
+ *     tags:
+ *       - Connexion restaurateur
+ *     summary: Ajout d'un restaurateur
+ *     description: Ajout d'un restaurateur dans la base de données
+ *     parameters:
+ *       - name: body
+ *         in: body
+ *         required: true
+ *         schema:
+ *           type: object
+ *           properties:
+ *             name:
+ *               type: string
+ *             phone_number:
+ *               type: string
+ *             email:
+ *               type: string
+ *             password:
+ *               type: string
+ *             restaurant_name:
+ *               type: string
+ *     responses:
+ *       200:
+ *         description: Ajout réussi
+ *       400:
+ *         description: L'adresse mail est déjà utilisée
+ *       500:
+ *         description: Erreur interne
+ */
+app.post("/register/restaurateur", async (req, res) => {
+  try {
+    let data = req.body;
+    let pool = await sql.connect(config);
+    let userAlreadyExist = false;
+
+    const requestSelect = pool.request();
+    requestSelect.input("email", sql.VarChar, data.email);
+    const result = await requestSelect.query(
+      "SELECT COUNT (*) AS compte FROM dbo.person WHERE email = @email"
+    );
+    if (parseInt(JSON.stringify(result.recordset[0].compte)) != 0) {
+      userAlreadyExist = true;
+    }
+
+    if (userAlreadyExist) {
+      res
+        .status(400)
+        .send(`L'addresse mail : "${data.email}" est déjà utilisée, veuillez vous connecter`)
+        .end();
+    } else {
+      let encryptedPassword = await bcrypt.hash(data.password, 10);
+
+      const request = pool.request();
+      request.input("name", sql.VarChar, data.name);
+      request.input("phone_number", sql.VarChar, data.phone_number);
+      request.input("email", sql.VarChar, data.email);
+      request.input("password", sql.VarChar, encryptedPassword);
+      await request.query(
+        "INSERT INTO dbo.person(name, phone_number, email, password, role) VALUES (@name, @phone_number, @email, @password, 2)"
+      );
 
 
+      const requestSelect = pool.request();
+      requestSelect.input("email", sql.VarChar, data.email);
+      const result = await requestSelect.query("SELECT id_person FROM dbo.person WHERE email = @email");
+
+      console.log(result.recordset[0].id_person)
+
+
+      const requestClient = pool.request();
+      requestClient.input("id_restaurant", sql.Int, result.recordset[0].id_person);
+      requestClient.input("restaurant_name", sql.VarChar, data.restaurant_name);
+      await requestClient.query(
+        "INSERT INTO dbo.restaurateur (id_restaurant, code_parrainage, restaurant_name) VALUES (@id_restaurant, '', @restaurant_name)"
+      );
+      const expirationTime = 5 * 24 * 60 * 60; // 5 jours en secondes
+      const token = jwt.sign({ email: data.email }, process.env.TOKEN_KEY, { expiresIn: expirationTime });
+      res.cookie('token', token, { httpOnly: true, maxAge: expirationTime * 1000 }).send("Inscris !").end();
+    }
+  } catch (error) {
+    res.status(500).send(error).end();
+  }
+});
+
+//Login restaurateur
+/**
+ * @swagger
+ * /login/restaurateur:
+ *   post:
+ *     tags:
+ *       - Connexion restaurateur
+ *     summary: Connexion d'un restaurateur
+ *     description: Connexion d'un restaurateur avec vérification de l'email et du mot de passe
+ *     parameters:
+ *       - name: body
+ *         in: body
+ *         required: true
+ *         schema:
+ *           type: object
+ *           properties:
+ *             email:
+ *               type: string
+ *             password:
+ *               type: string
+ *     responses:
+ *       200:
+ *         description: Connexion réussie
+ *       400:
+ *         description: Adresse mail ou mot de passe invalide
+ *       500:
+ *         description: Erreur interne
+ */
+app.post("/login/restaurateur", async (req, res) => {
+  let data = req.body;
+  let pool = await sql.connect(config);
+
+  const request = pool.request();
+  request.input('email', sql.VarChar, data.email);
+  request.query("SELECT email, password FROM dbo.person WHERE email = @email", (err, result) => {
+    if (err) {
+      return res.status(500).send(err);
+    }
+    if (result.recordset.length == 0) {
+      return res.status(400).send("Adresse mail non existante");
+    }
+    const validPassword = bcrypt.compareSync(data.password, result.recordset[0].password);
+    if (!validPassword) {
+      return res.status(400).send('Mot de passe invalide');
+    }
+    const expirationTime = 5 * 24 * 60 * 60; // 5 jours en secondes
+    const token = jwt.sign({ email: data.email }, process.env.TOKEN_KEY, { expiresIn: expirationTime });
+
+    res.cookie('token', token, { httpOnly: true, maxAge: expirationTime * 1000 }).send("Connecté !").end();
+  });
+});
+
+/* CONTINUE LE CRUD AXEL*/
 
 //#endregion
 
