@@ -1,0 +1,17 @@
+{
+  "idClient": 1,
+  "idRestaurant": 2,
+  "items": [
+    {
+      "name": "Poutine",
+      "price": 12.5,
+      "qty": 1
+    },
+    {
+      "name": "Salade César",
+      "price": 8.75,
+      "qty": 2
+    }
+  ],
+  "total": 31
+}
