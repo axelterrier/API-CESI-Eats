@@ -21,6 +21,7 @@ const jwt_decode = require("jwt-decode");
 const Menu = require("./model/menuMongoose.ts")
 const Logs = require("./model/logMongoose.ts")
 const Commande = require("./model/commandeMongoose.ts")
+const Perf = require("./model/perfMongoose.ts")
 const swaggerJsDoc = require('swagger-jsdoc')
 const swaggerUi = require('swagger-ui-express')
 const swaggerOptions = {
@@ -183,7 +184,7 @@ app.post("/register/client", async (req, res) => {
 // Login
 /**
  * @swagger
- * /login:
+ * /login/client:
  *   post:
  *     tags:
  *       - Connexion
@@ -677,12 +678,16 @@ app.post("/menu", async (req, res) => {
  *       payment_information:
  *         type: number
  */
-app.get('/restaurants', function (req, res) {
-  checkToken(req, res)
-  Menu.find((err, restaurants) => {
-    if (err) return handleError(err);
-    res.send(restaurants);
-  });
+app.get('/restaurants', async (req, res) => {
+  const start = Date.now();
+  try {
+      const restaurants = await Menu.find();
+      const elapsed = Date.now() - start;
+      await Perf.create({route: '/restaurants', time: elapsed});
+      res.send(restaurants);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 //Récupère un restaurant et son menu
@@ -1741,7 +1746,791 @@ app.get("/client/:id/stats/count7days", async (req, res) => {
   }
 });
 
+//Get graph client Orders last 7 days
+/**
+* @swagger
+* /client/{id}/stats/graph/ordersLast7d:
+*   get:
+*     tags: 
+*       - Statistique
+*     summary: Obtenir les commandes des 7 derniers jours pour un client spécifique
+*     parameters:
+*       - name: id
+*         in: path
+*         required: true
+*         description: L'ID du client pour lequel les commandes seront récupérées
+*     responses:
+*       200:
+*         description: Obtention réussie des commandes pour le client spécifié
+*       500:
+*         description: Erreur lors de l'obtention des commandes
+*/
+app.get("/client/:id/stats/graph/ordersLast7d", async (req, res) => {
+  try {
+    const id = req.params.id
+    // Obtenir les commandes dans les 7 derniers jours
+    const sevenDaysAgo = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000));
+    const commandes = await Commande.find({
+      "client": id,
+      "date": { $gt: sevenDaysAgo }
+    }).sort({date: 1});
+    
+    // Compter le nombre de commandes par jour
+    const commandesByDay = {};
+    commandes.forEach(commande => {
+      const date = new Date(commande.date);
+      const day = date.toLocaleDateString();
+      if (commandesByDay[day]) {
+        commandesByDay[day]++;
+      } else {
+        commandesByDay[day] = 1;
+      }
+    });
 
+    // Créer un tableau des jours manquants
+    const allDays = Array.from({ length: 7 }, (_, i) => new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toLocaleDateString());
+    // Ajouter les jours manquants à commandesByDay avec une valeur de 0
+    allDays.forEach(day => {
+    if (!commandesByDay[day]) {
+    commandesByDay[day] = 0;
+    }
+    });
+    // Trier commandesByDay par jour
+    const sortedCommandesByDay = {};
+    allDays.forEach(day => {
+    sortedCommandesByDay[day] = commandesByDay[day];
+    });
+    
+    res.json(sortedCommandesByDay);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+//Get graph client Orders last month (last 30 days)
+/**
+* @swagger
+* /client/{id}/stats/graph/ordersLastM:
+*   get:
+*     tags: 
+*       - Statistique
+*     summary: Obtenir les commandes du mois en cours pour un client spécifique
+*     parameters:
+*       - name: id
+*         in: path
+*         required: true
+*         description: L'ID du client pour lequel les commandes seront récupérées
+*     responses:
+*       200:
+*         description: Obtention réussie des commandes pour le client spécifié
+*       500:
+*         description: Erreur lors de l'obtention des commandes
+*/
+app.get("/client/:id/stats/graph/ordersLastM", async (req, res) => {
+  try {
+    const id = req.params.id
+    // Obtenir les commandes du mois en cours'
+    const oneMonthAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000));
+    const commandes = await Commande.find({
+    "client": id,
+    "date": { $gt: oneMonthAgo }
+    }).sort({date: 1});
+    // Compter le nombre de commandes par jour
+    const commandesByDay = {};
+    commandes.forEach(commande => {
+    const date = new Date(commande.date);
+    const day = date.toLocaleDateString();
+    if (commandesByDay[day]) {
+      commandesByDay[day]++;
+    } else {
+      commandesByDay[day] = 1;
+    }
+    });
+
+    // Créer un tableau des jours manquants
+    const allDays = Array.from({ length: 30 }, (_, i) => new Date(oneMonthAgo.getTime() + (i * 24 * 60 * 60 * 1000)).toLocaleDateString());
+    // Ajouter les jours manquants à commandesByDay avec une valeur de 0
+    allDays.forEach(day => {
+    if (!commandesByDay[day]) {
+    commandesByDay[day] = 0;
+    }
+    });
+    // Trier commandesByDay par jour
+    const sortedCommandesByDay = {};
+    allDays.forEach(day => {
+    sortedCommandesByDay[day] = commandesByDay[day];
+    });
+
+    res.json(sortedCommandesByDay);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+    }
+});
+
+//Get graph client Orders last year (last 365 days)
+/**
+* @swagger
+* /client/{id}/stats/graph/ordersLastY:
+*   get:
+*     tags: 
+*       - Statistique
+*     summary: Obtenir les commandes de l'année en cours pour un client spécifique
+*     parameters:
+*       - name: id
+*         in: path
+*         required: true
+*         description: L'ID du client pour lequel les commandes seront récupérées
+*     responses:
+*       200:
+*         description: Obtention réussie des commandes pour le client spécifié
+*       500:
+*         description: Erreur lors de l'obtention des commandes
+*/
+app.get("/client/:id/stats/graph/ordersLastY", async (req, res) => {
+  try {
+    const id = req.params.id
+    // Obtenir les commandes de l'année en cours'
+    const oneYearAgo = new Date(Date.now() - (365 * 24 * 60 * 60 * 1000));
+    const commandes = await Commande.find({
+      "client": id,
+      "date": { $gt: oneYearAgo }
+      }).sort({date: 1});
+    
+    // Compter le nombre de commandes par mois
+const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+const commandesByMonth = {};
+commandes.forEach(commande => {
+  const date = new Date(commande.date);
+  const month = months[date.getMonth()];
+  if (commandesByMonth[month]) {
+    commandesByMonth[month]++;
+  } else {
+    commandesByMonth[month] = 1;
+  }
+});
+// Ajouter les mois manquants à commandesByMonth avec une valeur de 0
+months.forEach(month => {
+  if (!commandesByMonth[month]) {
+    commandesByMonth[month] = 0;
+  }
+});
+// Trier commandesByMonth par mois
+const sortedCommandesByMonth = {};
+months.forEach(month => {
+  sortedCommandesByMonth[month] = commandesByMonth[month];
+});
+
+res.json(sortedCommandesByMonth);
+
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+//Get graph client Orders last year (last 365 days) -> repartition des commandes selon les trimestres
+/**
+* @swagger
+* /client/{id}/stats/graph/ordersLastYSortByQuarter:
+*   get:
+*     tags: 
+*       - Statistique
+*     summary: Obtenir les commandes de l'année en cours pour un client spécifique, classées par trimestre
+*     parameters:
+*       - name: id
+*         in: path
+*         required: true
+*         description: L'ID du client pour lequel les commandes seront récupérées
+*     responses:
+*       200:
+*         description: Obtention réussie des commandes pour le client spécifié, classées par trimestre
+*       500:
+*         description: Erreur lors de l'obtention des commandes
+*/
+app.get("/client/:id/stats/graph/ordersLastYSortByQuarter", async (req, res) => {
+  try {
+    const id = req.params.id
+    // Obtenir les commandes de l'année en cours'
+    const oneYearAgo = new Date(Date.now() - (365 * 24 * 60 * 60 * 1000));
+    const commandes = await Commande.find({
+      "client": id,
+      "date": { $gt: oneYearAgo }
+      }).sort({date: 1});
+    
+    // Compter le nombre de commandes par trimestre
+    const commandesByQuarter = {};
+    commandes.forEach(commande => {
+      const date = new Date(commande.date);
+      const quarter = Math.floor((date.getMonth() + 3) / 3);
+      if (commandesByQuarter[quarter]) {
+        commandesByQuarter[quarter]++;
+      } else {
+        commandesByQuarter[quarter] = 1;
+      }
+    });
+
+    // Ajouter les trimestres manquants à commandesByQuarter avec une valeur de 0
+    for (let i = 1; i <= 4; i++) {
+      if (!commandesByQuarter[i]) {
+        commandesByQuarter[i] = 0;
+      }
+    }
+
+    // Modifier les clés pour être de la forme "Trimestre 1", "Trimestre 2"
+    Object.keys(commandesByQuarter).forEach(quarter => {
+      commandesByQuarter[`Trimestre ${quarter}`] = commandesByQuarter[quarter];
+      delete commandesByQuarter[quarter];
+    });
+
+    res.json(commandesByQuarter);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+////Graph Restaurant
+//Get graph restaurant Orders last 7 days
+/**
+* @swagger
+* /restaurant/{id}/stats/graph/ordersLast7d:
+*   get:
+*     tags: 
+*       - Statistique
+*     summary: Obtenir les commandes des 7 derniers jours pour un restaurant spécifique
+*     parameters:
+*       - name: id
+*         in: path
+*         required: true
+*         description: L'ID du restaurant pour lequel les commandes seront récupérées
+*     responses:
+*       200:
+*         description: Obtention réussie des commandes pour le restaurant spécifié
+*       500:
+*         description: Erreur lors de l'obtention des commandes
+*/
+app.get("/restaurant/:id/stats/graph/ordersLast7d", async (req, res) => {
+  try {
+    const id = req.params.id
+    // Obtenir les commandes dans les 7 derniers jours
+    const sevenDaysAgo = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000));
+    const commandes = await Commande.find({
+      "restaurant": id,
+      "date": { $gt: sevenDaysAgo }
+    }).sort({date: 1});
+    
+    // Compter le nombre de commandes par jour
+    const commandesByDay = {};
+    commandes.forEach(commande => {
+      const date = new Date(commande.date);
+      const day = date.toLocaleDateString();
+      if (commandesByDay[day]) {
+        commandesByDay[day]++;
+      } else {
+        commandesByDay[day] = 1;
+      }
+    });
+
+    // Créer un tableau des jours manquants
+    const allDays = Array.from({ length: 7 }, (_, i) => new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toLocaleDateString());
+    // Ajouter les jours manquants à commandesByDay avec une valeur de 0
+    allDays.forEach(day => {
+    if (!commandesByDay[day]) {
+    commandesByDay[day] = 0;
+    }
+    });
+    // Trier commandesByDay par jour
+    const sortedCommandesByDay = {};
+    allDays.forEach(day => {
+    sortedCommandesByDay[day] = commandesByDay[day];
+    });
+    
+    res.json(sortedCommandesByDay);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+//Get graph restaurant Orders last month (last 30 days)
+/**
+* @swagger
+* /restaurant/{id}/stats/graph/ordersLastM:
+*   get:
+*     tags: 
+*       - Statistique
+*     summary: Obtenir les commandes du mois en cours pour un restaurant spécifique
+*     parameters:
+*       - name: id
+*         in: path
+*         required: true
+*         description: L'ID du restaurant pour lequel les commandes seront récupérées
+*     responses:
+*       200:
+*         description: Obtention réussie des commandes pour le restaurant spécifié
+*       500:
+*         description: Erreur lors de l'obtention des commandes
+*/
+app.get("/restaurant/:id/stats/graph/ordersLastM", async (req, res) => {
+  try {
+    const id = req.params.id
+    // Obtenir les commandes du mois en cours'
+    const oneMonthAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000));
+    const commandes = await Commande.find({
+    "restaurant": id,
+    "date": { $gt: oneMonthAgo }
+    }).sort({date: 1});
+    // Compter le nombre de commandes par jour
+    const commandesByDay = {};
+    commandes.forEach(commande => {
+    const date = new Date(commande.date);
+    const day = date.toLocaleDateString();
+    if (commandesByDay[day]) {
+      commandesByDay[day]++;
+    } else {
+      commandesByDay[day] = 1;
+    }
+    });
+
+    // Créer un tableau des jours manquants
+    const allDays = Array.from({ length: 30 }, (_, i) => new Date(oneMonthAgo.getTime() + (i * 24 * 60 * 60 * 1000)).toLocaleDateString());
+    // Ajouter les jours manquants à commandesByDay avec une valeur de 0
+    allDays.forEach(day => {
+    if (!commandesByDay[day]) {
+    commandesByDay[day] = 0;
+    }
+    });
+    // Trier commandesByDay par jour
+    const sortedCommandesByDay = {};
+    allDays.forEach(day => {
+    sortedCommandesByDay[day] = commandesByDay[day];
+    });
+
+    res.json(sortedCommandesByDay);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+    }
+});
+
+//Get graph client Orders last year (last 365 days)
+/**
+* @swagger
+* /restaurant/{id}/stats/graph/ordersLastY:
+*   get:
+*     tags: 
+*       - Statistique
+*     summary: Obtenir les commandes de l'année en cours pour un restaurant spécifique
+*     parameters:
+*       - name: id
+*         in: path
+*         required: true
+*         description: L'ID du restaurant pour lequel les commandes seront récupérées
+*     responses:
+*       200:
+*         description: Obtention réussie des commandes pour le restaurant spécifié
+*       500:
+*         description: Erreur lors de l'obtention des commandes
+*/
+app.get("/restaurant/:id/stats/graph/ordersLastY", async (req, res) => {
+  try {
+    const id = req.params.id
+    // Obtenir les commandes de l'année en cours'
+    const oneYearAgo = new Date(Date.now() - (365 * 24 * 60 * 60 * 1000));
+    const commandes = await Commande.find({
+      "restaurant": id,
+      "date": { $gt: oneYearAgo }
+      }).sort({date: 1});
+    
+    // Compter le nombre de commandes par mois
+const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+const commandesByMonth = {};
+commandes.forEach(commande => {
+  const date = new Date(commande.date);
+  const month = months[date.getMonth()];
+  if (commandesByMonth[month]) {
+    commandesByMonth[month]++;
+  } else {
+    commandesByMonth[month] = 1;
+  }
+});
+// Ajouter les mois manquants à commandesByMonth avec une valeur de 0
+months.forEach(month => {
+  if (!commandesByMonth[month]) {
+    commandesByMonth[month] = 0;
+  }
+});
+// Trier commandesByMonth par mois
+const sortedCommandesByMonth = {};
+months.forEach(month => {
+  sortedCommandesByMonth[month] = commandesByMonth[month];
+});
+
+res.json(sortedCommandesByMonth);
+
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+//Get graph restaurant Orders last year (last 365 days) -> repartition des commandes selon les trimestres
+/**
+ * @swagger
+ * /clients/{id}/stats/graph/ordersLastYSortByQuarter:
+ *   get:
+ *     tags:
+ *       - Statistique
+ *     description: Retourne le nombre de commandes d'un client par trimestre sur l'année en cours
+ *     parameters:
+ *       - name: id
+ *         description: ID du client
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Retourne le nombre de commandes par trimestre
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 Trimestre 1:
+ *                   type: integer
+ *                 Trimestre 2:
+ *                   type: integer
+ *                 Trimestre 3:
+ *                   type: integer
+ *                 Trimestre 4:
+ *                   type: integer
+ *       500:
+ *         description: Erreur serveur
+ */
+app.get("/clients/:id/stats/graph/ordersLastYSortByQuarter", async (req, res) => {
+  try {
+    const id = req.params.id
+    // Obtenir les commandes de l'année en cours'
+    const oneYearAgo = new Date(Date.now() - (365 * 24 * 60 * 60 * 1000));
+    const commandes = await Commande.find({
+      "restaurant": id,
+      "date": { $gt: oneYearAgo }
+      }).sort({date: 1});
+    
+    // Compter le nombre de commandes par trimestre
+    const commandesByQuarter = {};
+    commandes.forEach(commande => {
+      const date = new Date(commande.date);
+      const quarter = Math.floor((date.getMonth() + 3) / 3);
+      if (commandesByQuarter[quarter]) {
+        commandesByQuarter[quarter]++;
+      } else {
+        commandesByQuarter[quarter] = 1;
+      }
+    });
+
+    // Ajouter les trimestres manquants à commandesByQuarter avec une valeur de 0
+    for (let i = 1; i <= 4; i++) {
+      if (!commandesByQuarter[i]) {
+        commandesByQuarter[i] = 0;
+      }
+    }
+
+    // Modifier les clés pour être de la forme "Trimestre 1", "Trimestre 2"
+    Object.keys(commandesByQuarter).forEach(quarter => {
+      commandesByQuarter[`Trimestre ${quarter}`] = commandesByQuarter[quarter];
+      delete commandesByQuarter[quarter];
+    });
+
+    res.json(commandesByQuarter);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/////Commercial
+////Graph
+//Get graph all restaurant Orders last 7 days
+/**
+ * @swagger
+ * /commandes/stats/graph/ordersLast7d:
+ *   get:
+ *     tags:
+ *       - Statistique
+ *     description: Retourne le nombre de commandes pour les 7 derniers jours.
+ *     produces:
+ *       - application/json
+ *     responses:
+ *       200:
+ *         description: Le nombre de commandes pour les 7 derniers jours.
+ *       500:
+ *         description: Erreur interne du serveur.
+ */
+app.get("/commandes/stats/graph/ordersLast7d", async (req, res) => {
+  try {
+    // Obtenir les commandes dans les 7 derniers jours
+    const sevenDaysAgo = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000));
+    const commandes = await Commande.find({
+      "date": { $gt: sevenDaysAgo }
+    }).sort({date: 1});
+    
+    // Compter le nombre de commandes par jour
+    const commandesByDay = {};
+    commandes.forEach(commande => {
+      const date = new Date(commande.date);
+      const day = date.toLocaleDateString();
+      if (commandesByDay[day]) {
+        commandesByDay[day]++;
+      } else {
+        commandesByDay[day] = 1;
+      }
+    });
+
+    // Créer un tableau des jours manquants
+    const allDays = Array.from({ length: 7 }, (_, i) => new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toLocaleDateString());
+    // Ajouter les jours manquants à commandesByDay avec une valeur de 0
+    allDays.forEach(day => {
+    if (!commandesByDay[day]) {
+    commandesByDay[day] = 0;
+    }
+    });
+    // Trier commandesByDay par jour
+    const sortedCommandesByDay = {};
+    allDays.forEach(day => {
+    sortedCommandesByDay[day] = commandesByDay[day];
+    });
+    
+    res.json(sortedCommandesByDay);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+//Get graph all restaurant Orders last month (last 30 days)
+/**
+ * @swagger
+ * /commandes/stats/graph/ordersLast7d:
+ *   get:
+ *     tags:
+ *       - Statistique
+ *     summary: Obtenir les commandes des 7 derniers jours
+ *     produces:
+ *       - application/json
+ *     responses:
+ *       200:
+ *         description: Les commandes des 7 derniers jours
+ *         schema:
+ *           type: object
+ *           properties:
+ *             jour1:
+ *               type: integer
+ *               example: 5
+ *             jour2:
+ *               type: integer
+ *               example: 3
+ *             jour3:
+ *               type: integer
+ *               example: 0
+ *             jour4:
+ *               type: integer
+ *               example: 2
+ *             jour5:
+ *               type: integer
+ *               example: 1
+ *             jour6:
+ *               type: integer
+ *               example: 4
+ *             jour7:
+ *               type: integer
+ *               example: 3
+ *       500:
+ *         description: Erreur serveur
+ */
+app.get("/commandes/stats/graph/ordersLastM", async (req, res) => {
+  try {
+  // Obtenir les commandes du mois en cours'
+  const oneMonthAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000));
+  const commandes = await Commande.find({
+  "date": { $gt: oneMonthAgo }
+  }).sort({date: 1});
+  // Compter le nombre de commandes par jour
+  const commandesByDay = {};
+  commandes.forEach(commande => {
+  const date = new Date(commande.date);
+  const day = date.toLocaleDateString();
+  if (commandesByDay[day]) {
+    commandesByDay[day]++;
+  } else {
+    commandesByDay[day] = 1;
+  }
+  });
+
+  // Créer un tableau des jours manquants
+  const allDays = Array.from({ length: 30 }, (_, i) => new Date(oneMonthAgo.getTime() + (i * 24 * 60 * 60 * 1000)).toLocaleDateString());
+  // Ajouter les jours manquants à commandesByDay avec une valeur de 0
+  allDays.forEach(day => {
+  if (!commandesByDay[day]) {
+  commandesByDay[day] = 0;
+  }
+  });
+  // Trier commandesByDay par jour
+  const sortedCommandesByDay = {};
+  allDays.forEach(day => {
+  sortedCommandesByDay[day] = commandesByDay[day];
+  });
+
+  res.json(sortedCommandesByDay);
+} catch (err) {
+  res.status(500).json({ message: err.message });
+  }
+});
+
+//Get graph all restaurant Orders last year (last 365 days)
+/**
+ * @swagger
+ * /commandes/stats/graph/ordersLastY:
+ *   get:
+ *     tags:
+ *       - Statistique
+ *     description: Retourne les commandes de l'année en cours, triées par mois
+ *     produces:
+ *       - application/json
+ *     responses:
+ *       200:
+ *         description: Liste des commandes de l'année en cours, triées par mois
+ *         schema:
+ *           type: object
+ *           properties:
+ *            janvier:
+ *              type: integer
+ *            février:
+ *              type: integer
+ *            mars:
+ *              type: integer
+ *            avril:
+ *              type: integer
+ *            mai:
+ *              type: integer
+ *            juin:
+ *              type: integer
+ *            juillet:
+ *              type: integer
+ *            août:
+ *              type: integer
+ *            septembre:
+ *              type: integer
+ *            octobre:
+ *              type: integer
+ *            novembre:
+ *              type: integer
+ *            décembre:
+ *              type: integer
+ *       500:
+ *         description: Erreur interne du serveur
+ */
+app.get("/commandes/stats/graph/ordersLastY", async (req, res) => {
+  try {
+    // Obtenir les commandes de l'année en cours'
+    const oneYearAgo = new Date(Date.now() - (365 * 24 * 60 * 60 * 1000));
+    const commandes = await Commande.find({
+      "date": { $gt: oneYearAgo }
+      }).sort({date: 1});
+    
+    // Compter le nombre de commandes par mois
+const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+const commandesByMonth = {};
+commandes.forEach(commande => {
+  const date = new Date(commande.date);
+  const month = months[date.getMonth()];
+  if (commandesByMonth[month]) {
+    commandesByMonth[month]++;
+  } else {
+    commandesByMonth[month] = 1;
+  }
+});
+// Ajouter les mois manquants à commandesByMonth avec une valeur de 0
+months.forEach(month => {
+  if (!commandesByMonth[month]) {
+    commandesByMonth[month] = 0;
+  }
+});
+// Trier commandesByMonth par mois
+const sortedCommandesByMonth = {};
+months.forEach(month => {
+  sortedCommandesByMonth[month] = commandesByMonth[month];
+});
+
+res.json(sortedCommandesByMonth);
+
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+//Get graph all restaurant Orders last year (last 365 days) -> repartition des commandes selon les trimestres
+/**
+ * @swagger
+ * /commandes/stats/graph/ordersLastYSortByQuarter:
+ *   get:
+ *     tags:
+ *       - Statistique
+ *     description: Retourne les commandes de l'année en cours, triées par trimestre
+ *     produces:
+ *       - application/json
+ *     responses:
+ *       200:
+ *         description: Liste des commandes de l'année en cours, triées par trimestre
+ *         schema:
+ *           type: object
+ *           properties:
+ *            Trimestre 1:
+ *              type: integer
+ *            Trimestre 2:
+ *              type: integer
+ *            Trimestre 3:
+ *              type: integer
+ *            Trimestre 4:
+ *              type: integer
+ *       500:
+ *         description: Erreur interne du serveur
+ */
+app.get("/commandes/stats/graph/ordersLastYSortByQuarter", async (req, res) => {
+  try {
+    // Obtenir les commandes de l'année en cours'
+    const oneYearAgo = new Date(Date.now() - (365 * 24 * 60 * 60 * 1000));
+    const commandes = await Commande.find({
+      "date": { $gt: oneYearAgo }
+      }).sort({date: 1});
+    
+    // Compter le nombre de commandes par trimestre
+    const commandesByQuarter = {};
+    commandes.forEach(commande => {
+      const date = new Date(commande.date);
+      const quarter = Math.floor((date.getMonth() + 3) / 3);
+      if (commandesByQuarter[quarter]) {
+        commandesByQuarter[quarter]++;
+      } else {
+        commandesByQuarter[quarter] = 1;
+      }
+    });
+
+    // Ajouter les trimestres manquants à commandesByQuarter avec une valeur de 0
+    for (let i = 1; i <= 4; i++) {
+      if (!commandesByQuarter[i]) {
+        commandesByQuarter[i] = 0;
+      }
+    }
+
+    // Modifier les clés pour être de la forme "Trimestre 1", "Trimestre 2"
+    Object.keys(commandesByQuarter).forEach(quarter => {
+      commandesByQuarter[`Trimestre ${quarter}`] = commandesByQuarter[quarter];
+      delete commandesByQuarter[quarter];
+    });
+
+    res.json(commandesByQuarter);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
 //#endregion
 
@@ -2652,6 +3441,9 @@ app.get('/users', checkTokenA, async (req, res) => {
   });
 });
 
+
+//#endregion
+
 //#region service technique
 
 //inscription développeur tier
@@ -2967,7 +3759,6 @@ app.put("/logs/:id", async (req, res) => {
 
 //#endregion
 
-//#endregion
 
 //#endregion
 
