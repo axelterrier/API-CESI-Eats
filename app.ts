@@ -3,6 +3,7 @@
 require("dotenv").config();
 require("./config/mongoose").connect();
 
+const cors = require("cors");
 const { config } = require("./config/SQLServer");
 const { exit } = require("process");
 const { default: jwtDecode } = require("jwt-decode");
@@ -36,6 +37,7 @@ const swaggerOptions = {
   apis: ["app.ts"]
 };
 
+app.use(cors({ origin: '*', methods: "GET,HEAD,PUT,PATCH,POST,DELETE", allowedHeaders: "*" }));
 const swaggerDocs = swaggerJsDoc(swaggerOptions)
 //#endregion
 
