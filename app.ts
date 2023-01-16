@@ -468,7 +468,7 @@ app.get("/user", async (req, res) => {
 //Suppression de l'utilisateur
 /**
  * @swagger
- * /user:
+ * /client:
  *   delete:
  *     tags:
  *       - Utilisateurs
@@ -574,6 +574,48 @@ app.put("/user", async (req, res) => {
 //#region crud menu
 
 //Crée un menu
+/**
+ * @swagger
+ * paths:
+ *  /menu:
+ *    post:
+ *      tags:
+ *        - restaurants
+ *      description: Crée un menu
+ *      produces:
+ *        - application/json
+ *      parameters:
+ *        - name: menu
+ *          description: Objet menu
+ *          in: body
+ *          required: true
+ *          schema:
+ *            $ref: '#/definitions/Menu'
+ *      responses:
+ *        201:
+ *          description: Le menu est créé
+ *        400:
+ *          description: Erreur lors de la création du menu
+ *        401:
+ *          description: Token non valide
+ *      security:
+ *        - bearerAuth: []
+ */
+/**
+ * @swagger
+ * definitions:
+ *   Menu:
+ *     type: object
+ *     properties:
+ *       nom:
+ *         type: string
+ *       description:
+ *         type: string
+ *       prix:
+ *         type: number
+ *       type:
+ *         type: string
+ */
 app.post("/menu", async (req, res) => {
   checkToken(req, res)
   const newMenu = new Menu(req.body);
@@ -670,48 +712,32 @@ app.get('/restaurants/:id', function (req, res) {
 //Mets à jour un menu
 /**
  * @swagger
- * /menu/{id}:
- *   put:
- *     description: Updates a menu by id
- *     produces:
- *       - application/json
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         type: number
- *         description: ID of menu to update
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/definitions/Menu'
- *     responses:
- *       200:
- *         description: Menu updated successfully
- *         schema:
- *           type: object
- *           properties:
- *             message:
- *               type: string
- *               example: Menu id : 1 updated
- *       400:
- *         description: Invalid request
- *         schema:
- *           type: object
- *           properties:
- *             message:
- *               type: string
- *               example: Invalid request
- *       404:
- *         description: Menu not found
- *         schema:
- *           type: object
- *           properties:
- *             message:
- *               type: string
- *               example: Menu not found
+ * tags:
+ *   - name: restaurants
+ * paths:
+ *  /menu/{id}:
+ *    put:
+ *      summary: Update a specific menu
+ *      tags:
+ *        - restaurants
+ *      parameters:
+ *        - in: path
+ *          name: id
+ *          required: true
+ *          schema:
+ *            type: string
+ *      requestBody:
+ *        required: true
+ *        content:
+ *          application/json:
+ *            schema:
+ *      responses:
+ *        '200':
+ *          description: Menu updated
+ *        '404':
+ *          description: Menu not found
+ *        '400':
+ *          description: Bad Request
  */
 app.put("/menu/:id", async (req, res) => {
   checkToken(req, res)
@@ -1265,27 +1291,23 @@ app.put("/commande/:id", async (req, res) => {
 
 //Récupère (ou crée si code inexistant) le code de parrainage de l'utilisateur connecté (peut importer son role)
 /**
- * @swagger
- * /sponsorship:
- *  get:
- *    tags:
- *      - Utilisateurs
- *    description: Récupère le code de parrainage de l'utilisateur connecté
- *    responses:
- *      200:
- *        description: Code de parrainage récupéré avec succès
- *        content:
- *          application/json:
- *            schema:
- *              type: object
- *              properties:
- *                sponsorshipId:
- *                  type: string
- *      404:
- *        description: Utilisateur non trouvé
- *    security:
- *      - token: []
- */
+* @swagger
+* tags:
+*   - name: Utilisateurs
+* paths:
+*  /sponsorship:
+*    get:
+*      summary: récupérer le code de parrainage de l'utilisateur connecté
+*      tags:
+*        - Utilisateurs
+*      responses:
+*        '200':
+*          description: Code de parrainage retourné
+*        '404':
+*          description: Utilisateur non trouvé
+*        '400':
+*          description: Bad Request
+*/
 app.get("/sponsorship", async (req, res) => {
   checkToken(req, res)
   let decodedToken = getInfoToken(req, res)
@@ -1997,21 +2019,25 @@ app.get("/restaurant/:id/stats/graph/ordersLast7d", async (req, res) => {
 //Get graph restaurant Orders last month (last 30 days)
 /**
 * @swagger
-* /restaurant/{id}/stats/graph/ordersLastM:
-*   get:
-*     tags: 
-*       - Statistique
-*     summary: Obtenir les commandes du mois en cours pour un restaurant spécifique
-*     parameters:
-*       - name: id
-*         in: path
-*         required: true
-*         description: L'ID du restaurant pour lequel les commandes seront récupérées
-*     responses:
-*       200:
-*         description: Obtention réussie des commandes pour le restaurant spécifié
-*       500:
-*         description: Erreur lors de l'obtention des commandes
+* tags:
+*   - name: Statistique
+* paths:
+*  /restaurant/{id}/stats/graph/ordersLastM:
+*    get:
+*      summary: Récupérer les statistiques des commandes d'un restaurant pour les 30 derniers jours
+*      tags:
+*        - Statistique
+*      parameters:
+*        - in: path
+*          name: id
+*          required: true
+*          schema:
+*            type: string
+*      responses:
+*        '200':
+*          description: Statistiques des commandes retournées
+*        '500':
+*          description: Erreur interne du serveur
 */
 app.get("/restaurant/:id/stats/graph/ordersLastM", async (req, res) => {
   try {
@@ -2250,44 +2276,21 @@ app.get("/commandes/stats/graph/ordersLast7d", async (req, res) => {
 
 //Get graph all restaurant Orders last month (last 30 days)
 /**
- * @swagger
- * /commandes/stats/graph/ordersLast7d:
- *   get:
- *     tags:
- *       - Statistique
- *     summary: Obtenir les commandes des 7 derniers jours
- *     produces:
- *       - application/json
- *     responses:
- *       200:
- *         description: Les commandes des 7 derniers jours
- *         schema:
- *           type: object
- *           properties:
- *             jour1:
- *               type: integer
- *               example: 5
- *             jour2:
- *               type: integer
- *               example: 3
- *             jour3:
- *               type: integer
- *               example: 0
- *             jour4:
- *               type: integer
- *               example: 2
- *             jour5:
- *               type: integer
- *               example: 1
- *             jour6:
- *               type: integer
- *               example: 4
- *             jour7:
- *               type: integer
- *               example: 3
- *       500:
- *         description: Erreur serveur
- */
+* @swagger
+* tags:
+*   - name: Statistique
+* paths:
+*  /commandes/stats/graph/ordersLastM:
+*    get:
+*      summary: Récupérer les statistiques des commandes pour les 30 derniers jours
+*      tags:
+*        - Statistique
+*      responses:
+*        '200':
+*          description: Statistiques des commandes retournées
+*        '500':
+*          description: Erreur interne du serveur
+*/
 app.get("/commandes/stats/graph/ordersLastM", async (req, res) => {
   try {
     // Obtenir les commandes du mois en cours'
