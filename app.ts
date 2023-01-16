@@ -104,7 +104,7 @@ var listener = app.listen(8888, function () {
 app.post("/register/client", async (req, res) => {
   let data = req.body;
   try {
-    
+
     let pool = await sql.connect(config);
     let userAlreadyExist = false;
 
@@ -280,7 +280,7 @@ app.post("/login/client", async (req, res) => {
  *         description: Déconnecté avec succès
  */
 app.post("/logout", (req, res) => {
-  let decodedToken = getInfoToken(req,res)
+  let decodedToken = getInfoToken(req, res)
   const log = new Logs({
     logType: 'déconnexion',
     timestamp: new Date(),
@@ -574,62 +574,6 @@ app.put("/user", async (req, res) => {
 //#region crud menu
 
 //Crée un menu
-/**
- * @swagger
- * /menu:
- *   post:
- *     tags:
- *       - restaurant
- *     description: Creates a new menu
- *     produces:
- *       - application/json
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/definitions/Menu'
- *     responses:
- *       201:
- *         description: Menu created successfully
- *         schema:
- *           type: object
- *           properties:
- *             message:
- *               type: string
- *               example: Menu id : 1 created
- *       400:
- *         description: Invalid request
- *         schema:
- *           type: object
- *           properties:
- *             message:
- *               type: string
- *               example: Invalid request
- */
-/**
- * @swagger
- * definitions:
- *   Menu:
- *     type: object
- *     properties:
- *       id:
- *         type: number
- *       menu:
- *         type: object
- *         properties:
- *           items:
- *             type: array
- *             items:
- *               type: object
- *               properties:
- *                 mixed:
- *                   type: object
- *           restaurant_categories:
- *             type: array
- *             items:
- *               type: string
- */
 app.post("/menu", async (req, res) => {
   checkToken(req, res)
   const newMenu = new Menu(req.body);
@@ -681,10 +625,10 @@ app.post("/menu", async (req, res) => {
 app.get('/restaurants', async (req, res) => {
   const start = Date.now();
   try {
-      const restaurants = await Menu.find();
-      const elapsed = Date.now() - start;
-      await Perf.create({route: '/restaurants', time: elapsed});
-      res.send(restaurants);
+    const restaurants = await Menu.find();
+    const elapsed = Date.now() - start;
+    await Perf.create({ route: '/restaurants', time: elapsed });
+    res.send(restaurants);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -1059,20 +1003,20 @@ app.get("/commande", async (req, res) => {
     let email = decodedToken.email
     request.input('email', sql.VarChar, email);
     request.query("SELECT id_person FROM dbo.person WHERE email = @email")
-    .then(async (result) => {
-    if (result.recordset.length === 0) {
-    // Respond with 400 status and error message if no person found
-    res.status(400).json({ message: 'Aucune personne trouvée avec cet email' });
-    } else {
-      let id_person = result.recordset[0].id_person
-    const commande = await Commande.findOne({ client: id_person });
-    // Respond with 200 status and success message
-    res.status(200).json({ message: 'Commandes récupérées avec succès', commande: commande.toObject() });
-    }
-    }).catch((err) => {
-    // Respond with 500 status and error message
-    res.status(500).json({ message: err.message });
-    });
+      .then(async (result) => {
+        if (result.recordset.length === 0) {
+          // Respond with 400 status and error message if no person found
+          res.status(400).json({ message: 'Aucune personne trouvée avec cet email' });
+        } else {
+          let id_person = result.recordset[0].id_person
+          const commande = await Commande.findOne({ client: id_person });
+          // Respond with 200 status and success message
+          res.status(200).json({ message: 'Commandes récupérées avec succès', commande: commande.toObject() });
+        }
+      }).catch((err) => {
+        // Respond with 500 status and error message
+        res.status(500).json({ message: err.message });
+      });
   } catch (err) {
     // Respond with 400 status and error message
     res.status(400).json({ message: err.message });
@@ -1773,8 +1717,8 @@ app.get("/client/:id/stats/graph/ordersLast7d", async (req, res) => {
     const commandes = await Commande.find({
       "client": id,
       "date": { $gt: sevenDaysAgo }
-    }).sort({date: 1});
-    
+    }).sort({ date: 1 });
+
     // Compter le nombre de commandes par jour
     const commandesByDay = {};
     commandes.forEach(commande => {
@@ -1791,16 +1735,16 @@ app.get("/client/:id/stats/graph/ordersLast7d", async (req, res) => {
     const allDays = Array.from({ length: 7 }, (_, i) => new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toLocaleDateString());
     // Ajouter les jours manquants à commandesByDay avec une valeur de 0
     allDays.forEach(day => {
-    if (!commandesByDay[day]) {
-    commandesByDay[day] = 0;
-    }
+      if (!commandesByDay[day]) {
+        commandesByDay[day] = 0;
+      }
     });
     // Trier commandesByDay par jour
     const sortedCommandesByDay = {};
     allDays.forEach(day => {
-    sortedCommandesByDay[day] = commandesByDay[day];
+      sortedCommandesByDay[day] = commandesByDay[day];
     });
-    
+
     res.json(sortedCommandesByDay);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -1832,39 +1776,39 @@ app.get("/client/:id/stats/graph/ordersLastM", async (req, res) => {
     // Obtenir les commandes du mois en cours'
     const oneMonthAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000));
     const commandes = await Commande.find({
-    "client": id,
-    "date": { $gt: oneMonthAgo }
-    }).sort({date: 1});
+      "client": id,
+      "date": { $gt: oneMonthAgo }
+    }).sort({ date: 1 });
     // Compter le nombre de commandes par jour
     const commandesByDay = {};
     commandes.forEach(commande => {
-    const date = new Date(commande.date);
-    const day = date.toLocaleDateString();
-    if (commandesByDay[day]) {
-      commandesByDay[day]++;
-    } else {
-      commandesByDay[day] = 1;
-    }
+      const date = new Date(commande.date);
+      const day = date.toLocaleDateString();
+      if (commandesByDay[day]) {
+        commandesByDay[day]++;
+      } else {
+        commandesByDay[day] = 1;
+      }
     });
 
     // Créer un tableau des jours manquants
     const allDays = Array.from({ length: 30 }, (_, i) => new Date(oneMonthAgo.getTime() + (i * 24 * 60 * 60 * 1000)).toLocaleDateString());
     // Ajouter les jours manquants à commandesByDay avec une valeur de 0
     allDays.forEach(day => {
-    if (!commandesByDay[day]) {
-    commandesByDay[day] = 0;
-    }
+      if (!commandesByDay[day]) {
+        commandesByDay[day] = 0;
+      }
     });
     // Trier commandesByDay par jour
     const sortedCommandesByDay = {};
     allDays.forEach(day => {
-    sortedCommandesByDay[day] = commandesByDay[day];
+      sortedCommandesByDay[day] = commandesByDay[day];
     });
 
     res.json(sortedCommandesByDay);
   } catch (err) {
     res.status(500).json({ message: err.message });
-    }
+  }
 });
 
 //Get graph client Orders last year (last 365 days)
@@ -1894,33 +1838,33 @@ app.get("/client/:id/stats/graph/ordersLastY", async (req, res) => {
     const commandes = await Commande.find({
       "client": id,
       "date": { $gt: oneYearAgo }
-      }).sort({date: 1});
-    
-    // Compter le nombre de commandes par mois
-const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-const commandesByMonth = {};
-commandes.forEach(commande => {
-  const date = new Date(commande.date);
-  const month = months[date.getMonth()];
-  if (commandesByMonth[month]) {
-    commandesByMonth[month]++;
-  } else {
-    commandesByMonth[month] = 1;
-  }
-});
-// Ajouter les mois manquants à commandesByMonth avec une valeur de 0
-months.forEach(month => {
-  if (!commandesByMonth[month]) {
-    commandesByMonth[month] = 0;
-  }
-});
-// Trier commandesByMonth par mois
-const sortedCommandesByMonth = {};
-months.forEach(month => {
-  sortedCommandesByMonth[month] = commandesByMonth[month];
-});
+    }).sort({ date: 1 });
 
-res.json(sortedCommandesByMonth);
+    // Compter le nombre de commandes par mois
+    const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+    const commandesByMonth = {};
+    commandes.forEach(commande => {
+      const date = new Date(commande.date);
+      const month = months[date.getMonth()];
+      if (commandesByMonth[month]) {
+        commandesByMonth[month]++;
+      } else {
+        commandesByMonth[month] = 1;
+      }
+    });
+    // Ajouter les mois manquants à commandesByMonth avec une valeur de 0
+    months.forEach(month => {
+      if (!commandesByMonth[month]) {
+        commandesByMonth[month] = 0;
+      }
+    });
+    // Trier commandesByMonth par mois
+    const sortedCommandesByMonth = {};
+    months.forEach(month => {
+      sortedCommandesByMonth[month] = commandesByMonth[month];
+    });
+
+    res.json(sortedCommandesByMonth);
 
 
   } catch (err) {
@@ -1955,8 +1899,8 @@ app.get("/client/:id/stats/graph/ordersLastYSortByQuarter", async (req, res) => 
     const commandes = await Commande.find({
       "client": id,
       "date": { $gt: oneYearAgo }
-      }).sort({date: 1});
-    
+    }).sort({ date: 1 });
+
     // Compter le nombre de commandes par trimestre
     const commandesByQuarter = {};
     commandes.forEach(commande => {
@@ -2016,8 +1960,8 @@ app.get("/restaurant/:id/stats/graph/ordersLast7d", async (req, res) => {
     const commandes = await Commande.find({
       "restaurant": id,
       "date": { $gt: sevenDaysAgo }
-    }).sort({date: 1});
-    
+    }).sort({ date: 1 });
+
     // Compter le nombre de commandes par jour
     const commandesByDay = {};
     commandes.forEach(commande => {
@@ -2034,16 +1978,16 @@ app.get("/restaurant/:id/stats/graph/ordersLast7d", async (req, res) => {
     const allDays = Array.from({ length: 7 }, (_, i) => new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toLocaleDateString());
     // Ajouter les jours manquants à commandesByDay avec une valeur de 0
     allDays.forEach(day => {
-    if (!commandesByDay[day]) {
-    commandesByDay[day] = 0;
-    }
+      if (!commandesByDay[day]) {
+        commandesByDay[day] = 0;
+      }
     });
     // Trier commandesByDay par jour
     const sortedCommandesByDay = {};
     allDays.forEach(day => {
-    sortedCommandesByDay[day] = commandesByDay[day];
+      sortedCommandesByDay[day] = commandesByDay[day];
     });
-    
+
     res.json(sortedCommandesByDay);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -2075,39 +2019,39 @@ app.get("/restaurant/:id/stats/graph/ordersLastM", async (req, res) => {
     // Obtenir les commandes du mois en cours'
     const oneMonthAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000));
     const commandes = await Commande.find({
-    "restaurant": id,
-    "date": { $gt: oneMonthAgo }
-    }).sort({date: 1});
+      "restaurant": id,
+      "date": { $gt: oneMonthAgo }
+    }).sort({ date: 1 });
     // Compter le nombre de commandes par jour
     const commandesByDay = {};
     commandes.forEach(commande => {
-    const date = new Date(commande.date);
-    const day = date.toLocaleDateString();
-    if (commandesByDay[day]) {
-      commandesByDay[day]++;
-    } else {
-      commandesByDay[day] = 1;
-    }
+      const date = new Date(commande.date);
+      const day = date.toLocaleDateString();
+      if (commandesByDay[day]) {
+        commandesByDay[day]++;
+      } else {
+        commandesByDay[day] = 1;
+      }
     });
 
     // Créer un tableau des jours manquants
     const allDays = Array.from({ length: 30 }, (_, i) => new Date(oneMonthAgo.getTime() + (i * 24 * 60 * 60 * 1000)).toLocaleDateString());
     // Ajouter les jours manquants à commandesByDay avec une valeur de 0
     allDays.forEach(day => {
-    if (!commandesByDay[day]) {
-    commandesByDay[day] = 0;
-    }
+      if (!commandesByDay[day]) {
+        commandesByDay[day] = 0;
+      }
     });
     // Trier commandesByDay par jour
     const sortedCommandesByDay = {};
     allDays.forEach(day => {
-    sortedCommandesByDay[day] = commandesByDay[day];
+      sortedCommandesByDay[day] = commandesByDay[day];
     });
 
     res.json(sortedCommandesByDay);
   } catch (err) {
     res.status(500).json({ message: err.message });
-    }
+  }
 });
 
 //Get graph client Orders last year (last 365 days)
@@ -2137,33 +2081,33 @@ app.get("/restaurant/:id/stats/graph/ordersLastY", async (req, res) => {
     const commandes = await Commande.find({
       "restaurant": id,
       "date": { $gt: oneYearAgo }
-      }).sort({date: 1});
-    
-    // Compter le nombre de commandes par mois
-const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-const commandesByMonth = {};
-commandes.forEach(commande => {
-  const date = new Date(commande.date);
-  const month = months[date.getMonth()];
-  if (commandesByMonth[month]) {
-    commandesByMonth[month]++;
-  } else {
-    commandesByMonth[month] = 1;
-  }
-});
-// Ajouter les mois manquants à commandesByMonth avec une valeur de 0
-months.forEach(month => {
-  if (!commandesByMonth[month]) {
-    commandesByMonth[month] = 0;
-  }
-});
-// Trier commandesByMonth par mois
-const sortedCommandesByMonth = {};
-months.forEach(month => {
-  sortedCommandesByMonth[month] = commandesByMonth[month];
-});
+    }).sort({ date: 1 });
 
-res.json(sortedCommandesByMonth);
+    // Compter le nombre de commandes par mois
+    const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+    const commandesByMonth = {};
+    commandes.forEach(commande => {
+      const date = new Date(commande.date);
+      const month = months[date.getMonth()];
+      if (commandesByMonth[month]) {
+        commandesByMonth[month]++;
+      } else {
+        commandesByMonth[month] = 1;
+      }
+    });
+    // Ajouter les mois manquants à commandesByMonth avec une valeur de 0
+    months.forEach(month => {
+      if (!commandesByMonth[month]) {
+        commandesByMonth[month] = 0;
+      }
+    });
+    // Trier commandesByMonth par mois
+    const sortedCommandesByMonth = {};
+    months.forEach(month => {
+      sortedCommandesByMonth[month] = commandesByMonth[month];
+    });
+
+    res.json(sortedCommandesByMonth);
 
 
   } catch (err) {
@@ -2213,8 +2157,8 @@ app.get("/clients/:id/stats/graph/ordersLastYSortByQuarter", async (req, res) =>
     const commandes = await Commande.find({
       "restaurant": id,
       "date": { $gt: oneYearAgo }
-      }).sort({date: 1});
-    
+    }).sort({ date: 1 });
+
     // Compter le nombre de commandes par trimestre
     const commandesByQuarter = {};
     commandes.forEach(commande => {
@@ -2270,8 +2214,8 @@ app.get("/commandes/stats/graph/ordersLast7d", async (req, res) => {
     const sevenDaysAgo = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000));
     const commandes = await Commande.find({
       "date": { $gt: sevenDaysAgo }
-    }).sort({date: 1});
-    
+    }).sort({ date: 1 });
+
     // Compter le nombre de commandes par jour
     const commandesByDay = {};
     commandes.forEach(commande => {
@@ -2288,16 +2232,16 @@ app.get("/commandes/stats/graph/ordersLast7d", async (req, res) => {
     const allDays = Array.from({ length: 7 }, (_, i) => new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toLocaleDateString());
     // Ajouter les jours manquants à commandesByDay avec une valeur de 0
     allDays.forEach(day => {
-    if (!commandesByDay[day]) {
-    commandesByDay[day] = 0;
-    }
+      if (!commandesByDay[day]) {
+        commandesByDay[day] = 0;
+      }
     });
     // Trier commandesByDay par jour
     const sortedCommandesByDay = {};
     allDays.forEach(day => {
-    sortedCommandesByDay[day] = commandesByDay[day];
+      sortedCommandesByDay[day] = commandesByDay[day];
     });
-    
+
     res.json(sortedCommandesByDay);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -2346,40 +2290,40 @@ app.get("/commandes/stats/graph/ordersLast7d", async (req, res) => {
  */
 app.get("/commandes/stats/graph/ordersLastM", async (req, res) => {
   try {
-  // Obtenir les commandes du mois en cours'
-  const oneMonthAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000));
-  const commandes = await Commande.find({
-  "date": { $gt: oneMonthAgo }
-  }).sort({date: 1});
-  // Compter le nombre de commandes par jour
-  const commandesByDay = {};
-  commandes.forEach(commande => {
-  const date = new Date(commande.date);
-  const day = date.toLocaleDateString();
-  if (commandesByDay[day]) {
-    commandesByDay[day]++;
-  } else {
-    commandesByDay[day] = 1;
-  }
-  });
+    // Obtenir les commandes du mois en cours'
+    const oneMonthAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000));
+    const commandes = await Commande.find({
+      "date": { $gt: oneMonthAgo }
+    }).sort({ date: 1 });
+    // Compter le nombre de commandes par jour
+    const commandesByDay = {};
+    commandes.forEach(commande => {
+      const date = new Date(commande.date);
+      const day = date.toLocaleDateString();
+      if (commandesByDay[day]) {
+        commandesByDay[day]++;
+      } else {
+        commandesByDay[day] = 1;
+      }
+    });
 
-  // Créer un tableau des jours manquants
-  const allDays = Array.from({ length: 30 }, (_, i) => new Date(oneMonthAgo.getTime() + (i * 24 * 60 * 60 * 1000)).toLocaleDateString());
-  // Ajouter les jours manquants à commandesByDay avec une valeur de 0
-  allDays.forEach(day => {
-  if (!commandesByDay[day]) {
-  commandesByDay[day] = 0;
-  }
-  });
-  // Trier commandesByDay par jour
-  const sortedCommandesByDay = {};
-  allDays.forEach(day => {
-  sortedCommandesByDay[day] = commandesByDay[day];
-  });
+    // Créer un tableau des jours manquants
+    const allDays = Array.from({ length: 30 }, (_, i) => new Date(oneMonthAgo.getTime() + (i * 24 * 60 * 60 * 1000)).toLocaleDateString());
+    // Ajouter les jours manquants à commandesByDay avec une valeur de 0
+    allDays.forEach(day => {
+      if (!commandesByDay[day]) {
+        commandesByDay[day] = 0;
+      }
+    });
+    // Trier commandesByDay par jour
+    const sortedCommandesByDay = {};
+    allDays.forEach(day => {
+      sortedCommandesByDay[day] = commandesByDay[day];
+    });
 
-  res.json(sortedCommandesByDay);
-} catch (err) {
-  res.status(500).json({ message: err.message });
+    res.json(sortedCommandesByDay);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -2432,33 +2376,33 @@ app.get("/commandes/stats/graph/ordersLastY", async (req, res) => {
     const oneYearAgo = new Date(Date.now() - (365 * 24 * 60 * 60 * 1000));
     const commandes = await Commande.find({
       "date": { $gt: oneYearAgo }
-      }).sort({date: 1});
-    
-    // Compter le nombre de commandes par mois
-const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-const commandesByMonth = {};
-commandes.forEach(commande => {
-  const date = new Date(commande.date);
-  const month = months[date.getMonth()];
-  if (commandesByMonth[month]) {
-    commandesByMonth[month]++;
-  } else {
-    commandesByMonth[month] = 1;
-  }
-});
-// Ajouter les mois manquants à commandesByMonth avec une valeur de 0
-months.forEach(month => {
-  if (!commandesByMonth[month]) {
-    commandesByMonth[month] = 0;
-  }
-});
-// Trier commandesByMonth par mois
-const sortedCommandesByMonth = {};
-months.forEach(month => {
-  sortedCommandesByMonth[month] = commandesByMonth[month];
-});
+    }).sort({ date: 1 });
 
-res.json(sortedCommandesByMonth);
+    // Compter le nombre de commandes par mois
+    const months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+    const commandesByMonth = {};
+    commandes.forEach(commande => {
+      const date = new Date(commande.date);
+      const month = months[date.getMonth()];
+      if (commandesByMonth[month]) {
+        commandesByMonth[month]++;
+      } else {
+        commandesByMonth[month] = 1;
+      }
+    });
+    // Ajouter les mois manquants à commandesByMonth avec une valeur de 0
+    months.forEach(month => {
+      if (!commandesByMonth[month]) {
+        commandesByMonth[month] = 0;
+      }
+    });
+    // Trier commandesByMonth par mois
+    const sortedCommandesByMonth = {};
+    months.forEach(month => {
+      sortedCommandesByMonth[month] = commandesByMonth[month];
+    });
+
+    res.json(sortedCommandesByMonth);
 
 
   } catch (err) {
@@ -2499,8 +2443,8 @@ app.get("/commandes/stats/graph/ordersLastYSortByQuarter", async (req, res) => {
     const oneYearAgo = new Date(Date.now() - (365 * 24 * 60 * 60 * 1000));
     const commandes = await Commande.find({
       "date": { $gt: oneYearAgo }
-      }).sort({date: 1});
-    
+    }).sort({ date: 1 });
+
     // Compter le nombre de commandes par trimestre
     const commandesByQuarter = {};
     commandes.forEach(commande => {
@@ -3487,7 +3431,7 @@ app.get('/users', checkTokenA, async (req, res) => {
 app.post("/register/dev", async (req, res) => {
   let data = req.body;
   try {
-    
+
     let pool = await sql.connect(config);
     let userAlreadyExist = false;
 
