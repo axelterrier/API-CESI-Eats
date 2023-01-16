@@ -1,17 +1,23 @@
 {
-  "idClient": 1,
-  "idRestaurant": 2,
-  "items": [
+  "logs": [
     {
-      "name": "Poutine",
-      "price": 12.5,
-      "qty": 1
+      "logType": "inscription",
+      "timestamp": "2022-01-01T12:00:00Z",
+      "email": "email@email.com",
+      "success": true
     },
     {
-      "name": "Salade César",
-      "price": 8.75,
-      "qty": 2
+      "timestamp": "2022-01-01T12:01:00Z",
+      "email": "janedoe",
+      "success": false,
+      "error_message": "Invalid password"
+    },
+    {
+      "logType": "connexion",
+      "timestamp": "2022-01-01T12:02:00Z",
+      "email": "johndoe",
+      "success": true
     }
-  ],
-  "total": 31
+  ]
+  
 }

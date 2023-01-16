@@ -8,7 +8,8 @@ const commandeSchema = new mongoose.Schema({
     type: Date
   },
   client: {
-    type: Number
+    type: Number,
+    default: 0
   },
   restaurant: {
     type: Number
