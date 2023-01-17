@@ -1,23 +1,45 @@
 {
-  "logs": [
-    {
-      "logType": "inscription",
-      "timestamp": "2022-01-01T12:00:00Z",
-      "email": "email@email.com",
-      "success": true
-    },
-    {
-      "timestamp": "2022-01-01T12:01:00Z",
-      "email": "janedoe",
-      "success": false,
-      "error_message": "Invalid password"
-    },
-    {
-      "logType": "connexion",
-      "timestamp": "2022-01-01T12:02:00Z",
-      "email": "johndoe",
-      "success": true
-    }
-  ]
-  
+  "idCommande": 12,
+  "idClient": 12,
+  "idRestaurant" : 12,
+  "menu": {
+    "items": [
+      {
+        "name": "test incrément",
+        "item_category": "plat",
+        "description": "Riz cuit à la vapeur avec des fruits de mer, des légumes et de la saffron",
+        "price": 25
+      },
+      {
+        "name": "Tortilla española",
+        "item_category": "Entrée",
+        "description": "Omelette épaisse à base de pommes de terre, d'oignons et d'oeufs",
+        "price": 12
+      },
+      {
+        "name": "Gazpacho",
+        "item_category": "Entrée",
+        "description": "Soupe froide à base de tomates, concombre, poivrons et pain rassis, servie fraîche",
+        "price": 8
+      },
+      {
+        "name": "Churros con chocolate",
+        "item_category": "Dessert",
+        "description": "Tiges de pâte à churros frites, accompagnées d'une sauce au chocolat chaud pour tremper",
+        "price": 8
+      },
+      {
+        "name": "Sangria",
+        "item_category": "Boisson",
+        "description": "Boisson traditionnelle espagnole à base de vin rouge, de fruits et de sucre",
+        "price": 6
+      }
+    ],
+    "restaurant_categories": [
+      "plats",
+      "entrées",
+      "desserts",
+      "boissons"
+    ]
+  }
 }

@@ -574,54 +574,19 @@ app.put("/user", async (req, res) => {
 //#region crud menu
 
 //Crée un menu
-/**
- * @swagger
- * paths:
- *  /menu:
- *    post:
- *      tags:
- *        - restaurants
- *      description: Crée un menu
- *      produces:
- *        - application/json
- *      parameters:
- *        - name: menu
- *          description: Objet menu
- *          in: body
- *          required: true
- *          schema:
- *            $ref: '#/definitions/Menu'
- *      responses:
- *        201:
- *          description: Le menu est créé
- *        400:
- *          description: Erreur lors de la création du menu
- *        401:
- *          description: Token non valide
- *      security:
- *        - bearerAuth: []
- */
-/**
- * @swagger
- * definitions:
- *   Menu:
- *     type: object
- *     properties:
- *       nom:
- *         type: string
- *       description:
- *         type: string
- *       prix:
- *         type: number
- *       type:
- *         type: string
- */
 app.post("/menu", async (req, res) => {
-  checkToken(req, res)
-  const newMenu = new Menu(req.body);
   try {
+    checkToken(req, res);
+    let decodedToken = getInfoToken(req, res);
+    let pool = await sql.connect(config);
+
+    const request = pool.request();
+    request.input('email', sql.VarChar, decodedToken.email);
+    const result = await request.query("SELECT id_person FROM dbo.person WHERE email = @email");
+
+    const newMenu = new Menu(req.body);
     let menuNumber = await Menu.estimatedDocumentCount();
-    newMenu.id = menuNumber++
+    newMenu.idRestaurant = result.recordset[0].id_person;
     const menu = await newMenu.save();
 
     res.status(201).json({ message: `Menu id : ${menu.id} crée` });
