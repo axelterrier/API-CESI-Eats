@@ -39,7 +39,7 @@ const swaggerOptions = {
   apis: ["app.ts"]
 };
 
-app.use(cors({ origin: 'http://localhost:8100/', methods: "GET,HEAD,PUT,PATCH,POST,DELETE", allowedHeaders: ['content-type'], credentials: true }));
+app.use(cors({ origin: 'http://localhost:8100', methods: "GET,HEAD,PUT,PATCH,POST,DELETE", allowedHeaders: ['content-type'], credentials: true }));
 const swaggerDocs = swaggerJsDoc(swaggerOptions)
 //#endregion
 
