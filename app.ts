@@ -32,7 +32,7 @@ const swaggerOptions = {
       contact: {
         name: "UwU Eats"
       },
-      servers: ["https://localhost:8888"]
+      servers: ["https://localhost:8888/api/V1"]
     }
   },
   // on donne l'endroit ou sont les routes
@@ -59,7 +59,7 @@ var listener = app.listen(8888, function () {
 // Register dans la table person et la table client
 /**
  * @swagger
- * /register/client:
+ * /api/V1/register/client:
  *   post:
  *     tags:
  *       - Connexion
@@ -185,7 +185,7 @@ app.post(url + "/register/client", async (req, res) => {
 // Login
 /**
  * @swagger
- * /login/client:
+ * /api/V1/login/client:
  *   post:
  *     tags:
  *       - Connexion
@@ -271,7 +271,7 @@ app.post(url + "/login/client", async (req, res) => {
 
 /**
  * @swagger
- * /logout:
+ * /api/V1/logout:
  *   post:
  *     tags:
  *       - Utilisateurs
@@ -296,7 +296,7 @@ app.post(url + "/logout", (req, res) => {
 //Changement de mot de passe de l'addresse mail contenue dans le token utilisateur
 /**
 * @swagger
-* /updatePassword:
+* /api/V1/updatePassword:
 *   put:
 *     tags:
 *       - Connexion
@@ -365,7 +365,7 @@ app.put(url + "/updatePassword", async (req, res) => {
 //Changement de mot de passe avec une addresse mail spécifique
 /**
  * @swagger
- * /updatePassword/{email}:
+ * /api/V1/updatePassword/{email}:
  *    put:
  *      tags:
  *        - Admin
@@ -422,7 +422,7 @@ app.put(url + "/updatePassword/:email", async (req, res) => {
 //Lecture des informations de l'utilisateur connecté indépendamment du role
 /**
  * @swagger
- * /user:
+ * /api/V1/user:
  *   get:
  *     tags:
  *        - Utilisateurs 
@@ -469,7 +469,7 @@ app.get(url + "/user", async (req, res) => {
 //Suppression de l'utilisateur
 /**
  * @swagger
- * /client:
+ * /api/V1/client:
  *   delete:
  *     tags:
  *       - Utilisateurs
@@ -510,7 +510,7 @@ app.delete(url + "/client", async (req, res) => {
 //Mets à jour les informations utilisateurs
 /**
  * @swagger
- * /user:
+ * /api/V1/user:
  *   put:
  *     tags:
  *       - Utilisateurs
@@ -577,47 +577,46 @@ app.put(url + "/user", async (req, res) => {
 //Crée un menu
 /**
  * @swagger
- * /menu:
+ * /api/V1/menu:
  *   post:
  *     tags:
  *       - Menu
- *     summary: Create a new menu
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               menuName:
- *                 type: string
- *               menuDescription:
- *                 type: string
- *               menuPrice:
- *                 type: number
- *               menuIngredients:
- *                 type: array
+ *     description: Crée un nouveau menu pour un restaurant
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *       - name: body
+ *         description: Objet menu
+ *         in: body
+ *         required: true
+ *         schema:
+ *           type: object
+ *           properties:
+ *             idRestaurant:
+ *               type: number
+ *               example: 1
+ *             menu:
+ *               type: object
+ *               properties:
  *                 items:
- *                   type: string
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 restaurant_categories:
+ *                   type: array
+ *                   items:
+ *                     type: string
  *     responses:
  *       201:
- *         description: Menu created
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
+ *         description: Menu créé avec succès
+ *         schema:
+ *           type: object
+ *           properties:
+ *             message:
+ *               type: string
+ *               example: "Menu id : 1 crée"
  *       400:
- *         description: Bad request
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
+ *         description: Erreur lors de la création du menu
  */
 app.post(url + "/menu", async (req, res) => {
   try {
@@ -640,10 +639,32 @@ app.post(url + "/menu", async (req, res) => {
   }
 });
 
+
+app.post(url + "/menu/:email", async (req, res) => {
+  try {
+    checkToken(req, res);
+    let decodedToken = getInfoToken(req, res);
+    let pool = await sql.connect(config);
+    let email = req.params.email
+    const request = pool.request();
+    request.input('email', sql.VarChar, email);
+    const result = await request.query("SELECT id_person FROM dbo.person WHERE email = @email");
+
+    const newMenu = new Menu(req.body);
+    let menuNumber = await Menu.estimatedDocumentCount();
+    newMenu.idRestaurant = result.recordset[0].id_person;
+    const menu = await newMenu.save();
+
+    res.status(201).json({ message: `Menu id : ${menu.id} crée` });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
 //Récupère les menus //A corriger
 /**
  * @swagger
- * /restaurants:
+ * /api/V1/restaurants:
  *   get:
  *     tags:
  *       - Restaurant
@@ -688,7 +709,7 @@ app.get(url + '/restaurants', async (req, res) => {
 
 /**
  * @swagger
- * /restaurant/name/{id_restaurant}:
+ * /api/V1/restaurant/name/{id_restaurant}:
  *   get:
  *     tags:
  *       - Restaurant
@@ -719,12 +740,23 @@ app.get(url + '/restaurant/name/:id_restaurant', async (req, res) => {
   }
 });
 
+app.get(url + '/restaurants/name', async (req, res) => {
+  try {
+    let pool = await sql.connect(config);
+    const request = await pool.request();
+    const result = await request.query("SELECT restaurant_name, id_restaurant FROM dbo.restaurateur");
+    res.send(result.recordset);
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+
 
 
 //Récupère le menu d'un restaurant avec son id
 /**
  * @swagger
- * /menu/{id}:
+ * /api/V1/menu/{id}:
  *   get:
  *     tags:
  *       - Menu
@@ -775,7 +807,7 @@ app.get(url + '/menu/:id', function (req, res) {
  * tags:
  *   - name: Menu
  * paths:
- *  /menu/{id}:
+ *  /api/V1/menu/{id}:
  *    put:
  *      summary: Update a specific menu
  *      tags:
@@ -815,7 +847,7 @@ app.put(url + "/menu/:id", async (req, res) => {
 //Supprime un menu
 /**
  * @swagger
- * /menu/{id}:
+ * /api/V1/menu/{id}:
  *   delete:
  *     tags:
  *       - Menu
@@ -883,238 +915,88 @@ app.delete(url + '/menu/:id', async function (req, res) {
 //Crée une commande
 /**
  * @swagger
- * /commande:
+ * /api/V1/commande:
  *   post:
  *     tags:
  *       - Commande
- *     description: Creates a new commande
+ *     description: Crée une nouvelle commande en assignant un livreur disponible de manière aléatoire
  *     produces:
  *       - application/json
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/definitions/Commande'
+ *     parameters:
+ *       - name: body
+ *         description: Objet commande
+ *         in: body
+ *         required: true
+ *         schema:
+ *           $ref: "#/definitions/Commande"
  *     responses:
  *       201:
- *         description: Commande created successfully
- *         schema:
- *           type: object
- *           properties:
- *             message:
- *               type: string
- *               example: Commande created successfully
+ *         description: Commande créée avec succès
  *       400:
- *         description: Invalid request
- *         schema:
- *           type: object
- *           properties:
- *             message:
- *               type: string
- *               example: Invalid request
- */
-/**
- * @swagger
- * definitions:
- *   Commande:
- *     type: object
- *     properties:
- *       idCommande:
- *         type: number
- *       date:
- *         type: string
- *         format: date-time
- *       client:
- *         type: number
- *       restaurant:
- *         type: number
- *       items:
- *         type: array
- *         items:
- *           type: object
- *           properties:
- *             name:
- *               type: string
- *             price:
- *               type: number
- *             qty:
- *               type: number
- *       total:
- *         type: number
- *       deliverer:
- *         type: number
- *       status:
- *         type: string
+ *         description: Erreur lors de la création de la commande
+ *       401:
+ *         description: Aucun livreur disponible n'a été trouvé pour cette commande
  */
 app.post(url + "/commande", async (req, res) => {
-  checkToken(req, res)
+  //checkToken(res,res)
+  let decodedToken = getInfoToken(req, res);
+  let email = decodedToken.email;
   try {
-    let pool = await sql.connect(config);
-    const request = pool.request();
-    let decodedToken = getInfoToken(req, res);
-    let email = decodedToken.email
-    request.input('email', sql.VarChar, email);
+      const start = Date.now();
+      let pool = await sql.connect(config);
+      const request = pool.request();
+      request.input('email', sql.VarChar, email);
+      let resultDeliverer = await request.query("SELECT id_person FROM dbo.deliverer WHERE statut_activite = 1");
+      if (resultDeliverer.recordset.length > 0) {
+          let result = await request.query("SELECT id_person FROM dbo.person WHERE email = @email");
+          let availableDeliverers = resultDeliverer.recordset;
+          let randomIndex = Math.floor(Math.random() * availableDeliverers.length);
+          let randomlySelectedDeliverer = availableDeliverers[randomIndex];
+          // Create new commande object from request body
+          let newCommande = new Commande(req.body);
+          // Get the count of commande in database
+          let documentNumber = await Commande.estimatedDocumentCount();
+          // Set idCommande and id_person to new commande
+          newCommande.idCommande = documentNumber;
+          newCommande.date = new Date();
+          newCommande.client = result.recordset[0].id_person;
+          newCommande.deliverer = randomlySelectedDeliverer.id_person;
+          // Save the commande in database
+          const elapsed = Date.now() - start;
+          await Perf.create({ route: '/commande', time: elapsed });
+          await newCommande.save();
+          // Respond with 201 status and success message
+          res.status(201).json({ message: 'Commande créée avec succès' });
 
-    request.query("SELECT id_person FROM dbo.person WHERE email = @email")
-      .then(async (result) => {
-        // Create new commande object from request body
-        let newCommande = new Commande(req.body);
-        // Get the count of commande in database
-        let documentNumber = await Commande.estimatedDocumentCount();
-        // Set idCommande and id_person to new commande
-        newCommande.idCommande = documentNumber
-        newCommande.date = new Date()
-        newCommande.client = result.recordset[0].id_person
-        // Save the commande in database
-        const commande = await newCommande.save();
-        // Respond with 201 status and success message
-        res.status(201).json({ message: 'Commande créée avec succès' });
-
-        let log = new Logs({
-          logType: 'create commande',
-          timestamp: new Date(),
-          email: email,
-          success: true,
-          error_message: null
-        });
-        await log.save();
-      })
-      .catch((err) => {
-        let log = new Logs({
+          let log = new Logs({
+              logType: 'create commande',
+              timestamp: new Date(),
+              email: email,
+              success: true,
+              error_message: null
+          });
+          await log.save();
+      } else {
+          res.status(401).json({ message: 'Désolé, nous ne trouvons pas de livreur disponible dans votre zone géographique !' });
+      }
+  } catch (err) {
+      let log = new Logs({
           logType: 'create commande',
           timestamp: new Date(),
           email: email,
           success: false,
           error_message: err.message
-        });
-        log.save();
-        return res.status(500).send(err);
       });
-  } catch (err) {
-    // Respond with 400 status and error message
-    res.status(400).json({ message: err.message });
+      await log.save();
+      // Respond with 400 status and error message
+      res.status(400).json({ message: err.message });
   }
 });
-
-//récupère les commandes d'un utilisateur
-/**
- * @swagger
- * /commande:
- *   post:
- *     tags:
- *       - Commande
- *     description: Crée une nouvelle commande
- *     parameters:
- *       - in: body
- *         name: commande
- *         description: Les détails de la commande
- *         required: true
- *         schema:
- *           type: object
- *           properties:
- *             idCommande:
- *               type: number
- *             date:
- *               type: string
- *             client:
- *               type: number
- *             restaurant:
- *               type: number
- *             items:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   name:
- *                     type: string
- *                   price:
- *                     type: number
- *                   qty:
- *                     type: number
- *             total:
- *               type: number
- *             deliverer:
- *               type: number
- *             status:
- *               type: string
- *     responses:
- *       201:
- *         description: Commande créée avec succès
- *         schema:
- *           type: object
- *           properties:
- *             idCommande:
- *               type: number
- *             date:
- *               type: string
- *             client:
- *               type: number
- *             restaurant:
- *               type: number
- *             items:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   name:
- *                     type: string
- *                   price:
- *                     type: number
- *                   qty:
- *                     type: number
- *             total:
- *               type: number
- *             deliverer:
- *               type: number
- *             status:
- *               type: string
- *       401:
- *         description: Token non valide ou expiré
- *       500:
- *         description: Erreur serveur
- */
-app.post(url + '/commande', async (req, res) => {
-  try {
-      let decodedToken = getInfoToken(req, res);
-      let pool = await sql.connect(config);
-      const request = pool.request();
-      request.input('email', sql.VarChar, decodedToken.email);
-      const result = await request.query("SELECT id_person FROM dbo.person WHERE email = @email");
-      let total = 0;
-      req.body.items.forEach(item => {
-          if(!item.qty){
-            item.qty = 1
-          }
-          if(!item.price){
-            item.price = 1
-          }
-          total += item.price * item.qty;
-      });
-      console.log(total)
-      const order = new Commande({
-          idCommande: req.body.idCommande,
-          date: new Date(),
-          client: result.recordset[0].id_person,
-          restaurant: req.body.restaurant,
-          items: req.body.items,
-          total: total,
-          deliverer: req.body.deliverer,
-          status: "En cours"
-      });
-      await order.save();
-      res.status(201).send(order);
-  } catch (err) {
-      res.status(500).send(err.message);
-  }
-});
-
-
 
 //Récupère le nombre de commande
 /**
  * @swagger
- * /commande/count:
+ * /api/V1/commande/count:
  *   get:
  *     tags:
  *       - Commande
@@ -1150,7 +1032,7 @@ app.get(url + "/commande/count", async (req, res) => {
 //Récupère le nombre de commande par client
 /**
  * @swagger
- * /commande/count/{client}:
+ * /api/V1/commande/count/{client}:
  *   get:
  *     tags:
  *       - Commande
@@ -1192,7 +1074,7 @@ app.get(url + "/commande/count/:client", async (req, res) => {
 //Récupère le statut d'une commande 
 /**
  * @swagger
- * /commande/{idCommande}/status:
+ * /api/V1/commande/{idCommande}/status:
  *   get:
  *     tags:
  *       - Commande
@@ -1246,7 +1128,7 @@ app.get(url + "/commande/:idCommande/status", async (req, res) => {
 //modifie une commande via son id
 /**
  * @swagger
- * /commande/{id}:
+ * /api/V1/commande/{id}:
  *   put:
  *     tags:
  *       - Commande
@@ -1357,7 +1239,7 @@ app.put(url + "/commande/:id", async (req, res) => {
 * tags:
 *   - name: Utilisateurs
 * paths:
-*  /sponsorship:
+*  /api/V1/sponsorship:
 *    get:
 *      summary: récupérer le code de parrainage de l'utilisateur connecté
 *      tags:
@@ -1490,7 +1372,7 @@ app.get(url + "/sponsorship", async (req, res) => {
 //Get specified restaurant all time orders //AJOUTER ID EN DYNAMIQUE
 /**
  * @swagger
- * /restaurant/{id}/stats/countAllTime:
+ * /api/V1/restaurant/{id}/stats/countAllTime:
  *   get:
  *     tags:
  *       - Statistique
@@ -1527,7 +1409,7 @@ app.get(url + "/restaurant/:id/stats/countAllTime", async (req, res) => {
 //Get specified restaurant last 24h orders
 /**
  * @swagger
- * /restaurant/{id}/stats/count24h:
+ * /api/V1/restaurant/{id}/stats/count24h:
  *   get:
  *     tags:
  *       - Statistique
@@ -1569,7 +1451,7 @@ app.get(url + "/restaurant/:id/stats/count24h", async (req, res) => {
 //Get specified restaurant last 72h orders
 /**
  * @swagger
- * /restaurant/{id}/stats/count72h:
+ * /api/V1/restaurant/{id}/stats/count72h:
  *   get:
  *     tags:
  *       - Statistique
@@ -1610,7 +1492,7 @@ app.get(url + "/restaurant/:id/stats/count72h", async (req, res) => {
 //Get specified restaurant last 7 days orders
 /**
  * @swagger
- * /restaurant/{id}/stats/count7days:
+ * /api/V1/restaurant/{id}/stats/count7days:
  *   get:
  *     tags:
  *       - Statistique
@@ -1653,7 +1535,7 @@ app.get(url + "/restaurant/:id/stats/count7days", async (req, res) => {
 //Get specified client last 24h orders
 /**
  * @swagger
- * /client/{id}/stats/count24h:
+ * /api/V1/client/{id}/stats/count24h:
  *   get:
  *     tags:
  *       - Statistique
@@ -1695,7 +1577,7 @@ app.get(url + "/client/:id/stats/count24h", async (req, res) => {
 //Get specified client last 72h orders
 /**
  * @swagger
- * /client/{id}/stats/count72h:
+ * /api/V1/client/{id}/stats/count72h:
  *   get:
  *     tags:
  *       - Statistique
@@ -1736,7 +1618,7 @@ app.get(url + "/client/:id/stats/count72h", async (req, res) => {
 //Get specified client last 7 days orders
 /**
  * @swagger
- * /client/{id}/stats/count7days:
+ * /api/V1/client/{id}/stats/count7days:
  *   get:
  *     tags:
  *       - Statistique
@@ -1777,7 +1659,7 @@ app.get(url + "/client/:id/stats/count7days", async (req, res) => {
 //Get graph client Orders last 7 days
 /**
 * @swagger
-* /client/{id}/stats/graph/ordersLast7d:
+* /api/V1/client/{id}/stats/graph/ordersLast7d:
 *   get:
 *     tags: 
 *       - Statistique
@@ -1838,7 +1720,7 @@ app.get(url + "/client/:id/stats/graph/ordersLast7d", async (req, res) => {
 //Get graph client Orders last month (last 30 days)
 /**
 * @swagger
-* /client/{id}/stats/graph/ordersLastM:
+* /api/V1/client/{id}/stats/graph/ordersLastM:
 *   get:
 *     tags: 
 *       - Statistique
@@ -1898,7 +1780,7 @@ app.get(url + "/client/:id/stats/graph/ordersLastM", async (req, res) => {
 //Get graph client Orders last year (last 365 days)
 /**
 * @swagger
-* /client/{id}/stats/graph/ordersLastY:
+* /api/V1/client/{id}/stats/graph/ordersLastY:
 *   get:
 *     tags: 
 *       - Statistique
@@ -1959,7 +1841,7 @@ app.get(url + "/client/:id/stats/graph/ordersLastY", async (req, res) => {
 //Get graph client Orders last year (last 365 days) -> repartition des commandes selon les trimestres
 /**
 * @swagger
-* /client/{id}/stats/graph/ordersLastYSortByQuarter:
+* /api/V1/client/{id}/stats/graph/ordersLastYSortByQuarter:
 *   get:
 *     tags: 
 *       - Statistique
@@ -2020,7 +1902,7 @@ app.get(url + "/client/:id/stats/graph/ordersLastYSortByQuarter", async (req, re
 //Get graph restaurant Orders last 7 days
 /**
 * @swagger
-* /restaurant/{id}/stats/graph/ordersLast7d:
+* /api/V1/restaurant/{id}/stats/graph/ordersLast7d:
 *   get:
 *     tags: 
 *       - Statistique
@@ -2084,7 +1966,7 @@ app.get(url + "/restaurant/:id/stats/graph/ordersLast7d", async (req, res) => {
 * tags:
 *   - name: Statistique
 * paths:
-*  /restaurant/{id}/stats/graph/ordersLastM:
+*  /api/V1/restaurant/{id}/stats/graph/ordersLastM:
 *    get:
 *      summary: Récupérer les statistiques des commandes d'un restaurant pour les 30 derniers jours
 *      tags:
@@ -2145,7 +2027,7 @@ app.get(url + "/restaurant/:id/stats/graph/ordersLastM", async (req, res) => {
 //Get graph client Orders last year (last 365 days)
 /**
 * @swagger
-* /restaurant/{id}/stats/graph/ordersLastY:
+* /api/V1/restaurant/{id}/stats/graph/ordersLastY:
 *   get:
 *     tags: 
 *       - Statistique
@@ -2206,7 +2088,7 @@ app.get(url + "/restaurant/:id/stats/graph/ordersLastY", async (req, res) => {
 //Get graph restaurant Orders last year (last 365 days) -> repartition des commandes selon les trimestres
 /**
  * @swagger
- * /clients/{id}/stats/graph/ordersLastYSortByQuarter:
+ * /api/V1/clients/{id}/stats/graph/ordersLastYSortByQuarter:
  *   get:
  *     tags:
  *       - Statistique
@@ -2283,7 +2165,7 @@ app.get(url + "/clients/:id/stats/graph/ordersLastYSortByQuarter", async (req, r
 //Get graph all restaurant Orders last 7 days
 /**
  * @swagger
- * /commandes/stats/graph/ordersLast7d:
+ * /api/V1/commandes/stats/graph/ordersLast7d:
  *   get:
  *     tags:
  *       - Statistique
@@ -2342,7 +2224,7 @@ app.get(url + "/commandes/stats/graph/ordersLast7d", async (req, res) => {
 * tags:
 *   - name: Statistique
 * paths:
-*  /commandes/stats/graph/ordersLastM:
+*  /api/V1/commandes/stats/graph/ordersLastM:
 *    get:
 *      summary: Récupérer les statistiques des commandes pour les 30 derniers jours
 *      tags:
@@ -2395,7 +2277,7 @@ app.get(url + "/commandes/stats/graph/ordersLastM", async (req, res) => {
 //Get graph all restaurant Orders last year (last 365 days)
 /**
  * @swagger
- * /commandes/stats/graph/ordersLastY:
+ * /api/V1/commandes/stats/graph/ordersLastY:
  *   get:
  *     tags:
  *       - Statistique
@@ -2478,7 +2360,7 @@ app.get(url + "/commandes/stats/graph/ordersLastY", async (req, res) => {
 //Get graph all restaurant Orders last year (last 365 days) -> repartition des commandes selon les trimestres
 /**
  * @swagger
- * /commandes/stats/graph/ordersLastYSortByQuarter:
+ * /api/V1/commandes/stats/graph/ordersLastYSortByQuarter:
  *   get:
  *     tags:
  *       - Statistique
@@ -2548,7 +2430,7 @@ app.get(url + "/commandes/stats/graph/ordersLastYSortByQuarter", async (req, res
 //S'inscrire en tant que restaurateur
 /**
  * @swagger
- * /register/restaurateur:
+ * /api/V1/register/restaurateur:
  *   post:
  *     tags:
  *       - Connexion restaurateur
@@ -2637,7 +2519,7 @@ app.post(url + "/register/restaurateur", async (req, res) => {
 //Login restaurateur
 /**
  * @swagger
- * /login/restaurateur:
+ * /api/V1/login/restaurateur:
  *   post:
  *     tags:
  *       - Connexion restaurateur
@@ -2689,7 +2571,7 @@ app.post(url + "/login/restaurateur", async (req, res) => {
 //Mise à jour du nom du restaurant
 /**
  * @swagger
- * /restaurant/name:
+ * /api/V1/restaurant/name:
  *   put:
  *     tags:
  *       - Restaurant
@@ -2743,7 +2625,7 @@ app.put(url + "/restaurant/name", async (req, res) => {
 //Suppression du compte restaurateur actuellement connecté
 /**
  * @swagger
- * /restaurateur:
+ * /api/V1/restaurateur:
  *   delete:
  *     tags:
  *       - Restaurateur
@@ -2786,7 +2668,7 @@ app.delete(url + "/restaurateur", async (req, res) => {
 //Supprimer un restaurateur spécifique
 /**
  * @swagger
- * /restaurateur/{email}:
+ * /api/V1/restaurateur/{email}:
  *   delete:
  *     tags:
  *       - Restaurateur
@@ -2833,7 +2715,7 @@ app.delete(url + "/restaurateur/:email", async (req, res) => {
 //Inscrit un nouveau livreur
 /**
  * @swagger
- * /register/livreur:
+ * /api/V1/register/livreur:
  *   post:
  *     tags:
  *       - Connexion livreur
@@ -2938,7 +2820,7 @@ app.post(url + "/register/livreur", async (req, res) => {
 //Permets à un livreur de se connecter (fonction redondante)
 /**
  * @swagger
- * /login/livreur:
+ * /api/V1/login/livreur:
  *   post:
  *     tags:
  *       - Connexion livreur
@@ -2991,7 +2873,7 @@ app.post(url + "/login/livreur", async (req, res) => {
 
 /**
  * @swagger
- * /livreur/activite:
+ * /api/V1/livreur/activite:
  *   put:
  *     tags:
  *       - Livreur
@@ -3047,7 +2929,7 @@ app.put(url + "/livreur/activite", async (req, res) => {
 
 /**
  * @swagger
- * /livreur:
+ * /api/V1/livreur:
  *    delete:
  *      tags:
  *        - Livreur
@@ -3090,7 +2972,7 @@ app.delete(url + "/livreur", async (req, res) => {
 //Modifie un utilisateur spécifique
 /**
  * @swagger
- * /user/{email}:
+ * /api/V1/user/{email}:
  *   put:
  *     tags:
  *       - Admin
@@ -3158,7 +3040,7 @@ app.put(url + "/user/:email", checkTokenA, async (req, res) => {
 //Suppression d'un uilisateur spécifique
 /**
  * @swagger
- * /client/{email}:
+ * /api/V1/client/{email}:
  *   delete:
  *     tags:
  *       - Admin
@@ -3205,7 +3087,7 @@ app.delete(url + "/client/:email", checkTokenA, async (req, res) => {
 //Récupère un utilisateur via son addresse mail
 /**
  * @swagger
- * /user/{email}:
+ * /api/V1/user/{email}:
  *   get:
  *     tags:
  *       - Admin
@@ -3239,7 +3121,7 @@ app.get(url + '/user/:email', checkTokenA, async (req, res) => {
 //Supprime un utilisateur sans prendre en compte son role
 /**
  * @swagger
- * /user/{email}:
+ * /api/V1/user/{email}:
  *    delete:
  *      tags:
  *        - Admin
@@ -3304,7 +3186,7 @@ app.delete(url + "/user/:email", checkTokenA, async (req, res) => {
 //Création d'un utilisateur et attribution de son role
 /**
 * @swagger
-* /register:
+* /api/V1/register:
 *   post:
 *     tags:
 *       - Admin
@@ -3399,7 +3281,7 @@ app.post(url + "/register/", checkTokenA, async (req, res) => {
 
 /**
  * @swagger
- * /users:
+ * /api/V1/users:
  *   get:
  *     tags:
  *       - Admin
@@ -3458,7 +3340,7 @@ app.get(url + '/users', checkTokenA, async (req, res) => {
 //inscription développeur tier
 /**
  * @swagger
- * /register/dev:
+ * /api/V1/register/dev:
  *   post:
  *     tags:
  *       - Développeur
@@ -3576,7 +3458,7 @@ app.post(url + "/register/dev", async (req, res) => {
 //login dev
 /**
  * @swagger
- * /login/dev:
+ * /api/V1/login/dev:
  *   post:
  *     tags:
  *       - Développeur
@@ -3654,7 +3536,7 @@ app.post(url + "/login/dev", async (req, res) => {
 
 /**
  * @swagger
- * /dev:
+ * /api/V1/dev:
  *   delete:
  *     tags:
  *       - Développeur
@@ -3699,7 +3581,7 @@ app.delete(url + "/dev", async (req, res) => {
 //permets d'éditer les logs
 /**
  * @swagger
- * /logs/{id}:
+ * /api/V1/logs/{id}:
  *   put:
  *     tags:
  *       - Service technique
