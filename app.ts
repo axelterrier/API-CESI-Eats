@@ -24,6 +24,7 @@ const Commande = require("./model/commandeMongoose.ts")
 const Perf = require("./model/perfMongoose.ts")
 const swaggerJsDoc = require('swagger-jsdoc')
 const swaggerUi = require('swagger-ui-express')
+const url = "/api/V1"
 const swaggerOptions = {
   swaggerDefinition: {
     info: {
@@ -101,7 +102,7 @@ var listener = app.listen(8888, function () {
  *        password:
  *          type: string
  */
-app.post("/register/client", async (req, res) => {
+app.post(url + "/register/client", async (req, res) => {
   let data = req.body;
   try {
 
@@ -221,7 +222,7 @@ app.post("/register/client", async (req, res) => {
  *        password:
  *          type: string
  */
-app.post("/login/client", async (req, res) => {
+app.post(url + "/login/client", async (req, res) => {
   let data = req.body;
   let pool = await sql.connect(config);
 
@@ -279,7 +280,7 @@ app.post("/login/client", async (req, res) => {
  *       200:
  *         description: Déconnecté avec succès
  */
-app.post("/logout", (req, res) => {
+app.post(url + "/logout", (req, res) => {
   let decodedToken = getInfoToken(req, res)
   const log = new Logs({
     logType: 'déconnexion',
@@ -321,7 +322,7 @@ app.post("/logout", (req, res) => {
 *       500:
 *         description: Erreur interne du serveur
 */
-app.put("/updatePassword", async (req, res) => {
+app.put(url + "/updatePassword", async (req, res) => {
   let data = req.body;
   let decodedToken = getInfoToken(req, res)
   let email = decodedToken.email
@@ -382,7 +383,7 @@ app.put("/updatePassword", async (req, res) => {
  *        200:
  *          description: Informations mises à jour avec succès
  */
-app.put("/updatePassword/:email", async (req, res) => {
+app.put(url + "/updatePassword/:email", async (req, res) => {
   let data = req.body;
   let email = req.params.email
   let pool = await sql.connect(config);
@@ -449,7 +450,7 @@ app.put("/updatePassword/:email", async (req, res) => {
  *       500:
  *         description: Retourne un message d'erreur en cas d'erreur serveur
  */
-app.get("/user", async (req, res) => {
+app.get(url + "/user", async (req, res) => {
   checkToken(req, res)
   let pool = await sql.connect(config);
   const request = pool.request();
@@ -484,7 +485,7 @@ app.get("/user", async (req, res) => {
  *       500:
  *         description: Erreur interne du serveur
  */
-app.delete("/client", async (req, res) => {
+app.delete(url + "/client", async (req, res) => {
   try {
     let pool = await sql.connect(config);
     const request = pool.request();
@@ -541,7 +542,7 @@ app.delete("/client", async (req, res) => {
  *       500:
  *         description: Erreur interne
  */
-app.put("/user", async (req, res) => {
+app.put(url + "/user", async (req, res) => {
   let data = req.body;
 
   let decodedToken = getInfoToken(req, res)
@@ -574,7 +575,51 @@ app.put("/user", async (req, res) => {
 //#region crud menu
 
 //Crée un menu
-app.post("/menu", async (req, res) => {
+/**
+ * @swagger
+ * /menu:
+ *   post:
+ *     tags:
+ *       - Menu
+ *     summary: Create a new menu
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               menuName:
+ *                 type: string
+ *               menuDescription:
+ *                 type: string
+ *               menuPrice:
+ *                 type: number
+ *               menuIngredients:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       201:
+ *         description: Menu created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Bad request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ */
+app.post(url + "/menu", async (req, res) => {
   try {
     checkToken(req, res);
     let decodedToken = getInfoToken(req, res);
@@ -595,13 +640,13 @@ app.post("/menu", async (req, res) => {
   }
 });
 
-//Récupère tous les restaurants et leur menus
+//Récupère les menus //A corriger
 /**
  * @swagger
  * /restaurants:
  *   get:
  *     tags:
- *       - restaurants
+ *       - Restaurant
  *     description: Retourne la liste des restaurants
  *     produces:
  *       - application/json
@@ -629,7 +674,7 @@ app.post("/menu", async (req, res) => {
  *       payment_information:
  *         type: number
  */
-app.get('/restaurants', async (req, res) => {
+app.get(url + '/restaurants', async (req, res) => {
   const start = Date.now();
   try {
     const restaurants = await Menu.find();
@@ -641,31 +686,81 @@ app.get('/restaurants', async (req, res) => {
   }
 });
 
-//Récupère un restaurant et son menu
 /**
  * @swagger
- * /restaurants:
+ * /restaurant/name/{id_restaurant}:
  *   get:
- *     description: Retrieves a list of all restaurants
- *     produces:
- *       - application/json
+ *     tags:
+ *       - Restaurant
+ *     summary: Retourne le nom d'un restaurant via son ID
+ *     parameters:
+ *       - in: path
+ *         name: id_restaurant
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: ID of the restaurant to retrieve
  *     responses:
  *       200:
- *         description: A list of restaurants
- *         schema:
- *           type: array
- *           items:
- *             $ref: '#/definitions/Menu'
+ *         description: Successfully returned the name of the restaurant
  *       500:
- *         description: Internal server error
+ *         description: An error occurred
+ */
+app.get(url + '/restaurant/name/:id_restaurant', async (req, res) => {
+  try {
+    let pool = await sql.connect(config);
+    const request = await pool.request();
+    let id_restaurant = req.params.id_restaurant
+    request.input('id_restaurant', sql.VarChar, id_restaurant);
+    const result = await request.query("SELECT restaurant_name FROM dbo.restaurateur WHERE id_restaurant = @id_restaurant");
+    res.send(result.recordset[0]);
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+
+
+
+//Récupère le menu d'un restaurant avec son id
+/**
+ * @swagger
+ * /menu/{id}:
+ *   get:
+ *     tags:
+ *       - Menu
+ *     description: Récupère le menu d'un restaurant en fonction de son ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: ID du menu à récupérer
+ *     responses:
+ *       200:
+ *         description: Le menu du restaurant
  *         schema:
  *           type: object
  *           properties:
- *             error:
+ *             id:
  *               type: string
- *               example: handleError
+ *             name:
+ *               type: string
+ *             items:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *                   description:
+ *                     type: string
+ *                   price:
+ *                     type: number
+ *       401:
+ *         description: Token non valide ou expiré
+ *       404:
+ *         description: Menu introuvable
  */
-app.get('/restaurants/:id', function (req, res) {
+app.get(url + '/menu/:id', function (req, res) {
   checkToken(req, res)
   const menuId = req.params.id
   Menu.findOne({ id: menuId }, (err, restaurant) => {
@@ -678,13 +773,13 @@ app.get('/restaurants/:id', function (req, res) {
 /**
  * @swagger
  * tags:
- *   - name: restaurants
+ *   - name: Menu
  * paths:
  *  /menu/{id}:
  *    put:
  *      summary: Update a specific menu
  *      tags:
- *        - restaurants
+ *        - Menu
  *      parameters:
  *        - in: path
  *          name: id
@@ -704,7 +799,7 @@ app.get('/restaurants/:id', function (req, res) {
  *        '400':
  *          description: Bad Request
  */
-app.put("/menu/:id", async (req, res) => {
+app.put(url + "/menu/:id", async (req, res) => {
   checkToken(req, res)
   try {
     const menu = await Menu.findOneAndUpdate({ id: req.params.id }, req.body, { new: true });
@@ -723,7 +818,7 @@ app.put("/menu/:id", async (req, res) => {
  * /menu/{id}:
  *   delete:
  *     tags:
- *       - restaurants
+ *       - Menu
  *     description: Deletes a menu by id
  *     produces:
  *       - application/json
@@ -767,7 +862,7 @@ app.put("/menu/:id", async (req, res) => {
  *               type: string
  *               example: handleError
  */
-app.delete('/menu/:id', async function (req, res) {
+app.delete(url + '/menu/:id', async function (req, res) {
   checkToken(req, res)
   try {
     const menuId = req.params.id
@@ -784,13 +879,14 @@ app.delete('/menu/:id', async function (req, res) {
   }
 });
 
+
 //Crée une commande
 /**
  * @swagger
  * /commande:
  *   post:
  *     tags:
- *       - restaurants
+ *       - Commande
  *     description: Creates a new commande
  *     produces:
  *       - application/json
@@ -851,7 +947,7 @@ app.delete('/menu/:id', async function (req, res) {
  *       status:
  *         type: string
  */
-app.post("/commande", async (req, res) => {
+app.post(url + "/commande", async (req, res) => {
   checkToken(req, res)
   try {
     let pool = await sql.connect(config);
@@ -905,114 +1001,115 @@ app.post("/commande", async (req, res) => {
 /**
  * @swagger
  * /commande:
- *  get:
- *    tags:
- *    - restaurants
- *    summary: Récupère les commandes d'un client en fonction de son email
- *    parameters:
- *      - in: header
- *        name: x-auth-token
- *        required: true
- *        schema:
- *          type: string
- *    responses:
- *      200:
- *        description: Commandes récupérées avec succès
- *        content:
- *          application/json:
- *            schema:
- *              type: object
- *              properties:
- *                message:
- *                  type: string
- *                  example: Commandes récupérées avec succès
- *                commande:
- *                  type: object
- *                  properties:
- *                    _id:
- *                      type: string
- *                      example: 5f3g5d4f3g5d4f3g5d4f
- *                    client:
- *                      type: string
- *                      example: 5f3g5d4f3g5d4f3g5d4f
- *                    restaurant:
- *                      type: string
- *                      example: 5f3g5d4f3g5d4f3g5d4f
- *                    produits:
- *                      type: array
- *                      items:
- *                        type: object
- *                        properties:
- *                            _id:
- *                              type: string
- *                              example: 5f3g5d4f3g5d4f3g5d4f
- *                            nom:
- *                              type: string
- *                              example: Pizza Margherita
- *                            quantité:
- *                              type: number
- *                              example: 2
- *                            prix:
- *                              type: number
- *                              example: 15
- *                      example:
- *                        - _id: 5f3g5d4f3g5d4f3g5d4f
- *                          nom: Pizza Margherita
- *                          quantité: 2
- *                          prix: 15
- *                        - _id: 5f3g5d4f3g5d4f3g5d4f
- *                          nom: Spaghetti Bolognaise
- *                          quantité: 1
- *                          prix: 12
- *      400:
- *        description: Erreur lors de la récupération des commandes
- *        content:
- *          application/json:
- *            schema:
- *              type: object
- *              properties:
- *                message:
- *                  type: string
- *                  example: Aucune personne trouvée avec cet email
- *      500:
- *        description: Erreur serveur
- *        content:
- *          application/json:
- *            schema:
- *              type: object
- *              properties:
- *                message:
- *                  type: string
- *                  example: Erreur lors de la récupération des commandes
+ *   post:
+ *     tags:
+ *       - Commande
+ *     description: Crée une nouvelle commande
+ *     parameters:
+ *       - in: body
+ *         name: commande
+ *         description: Les détails de la commande
+ *         required: true
+ *         schema:
+ *           type: object
+ *           properties:
+ *             idCommande:
+ *               type: number
+ *             date:
+ *               type: string
+ *             client:
+ *               type: number
+ *             restaurant:
+ *               type: number
+ *             items:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *                   price:
+ *                     type: number
+ *                   qty:
+ *                     type: number
+ *             total:
+ *               type: number
+ *             deliverer:
+ *               type: number
+ *             status:
+ *               type: string
+ *     responses:
+ *       201:
+ *         description: Commande créée avec succès
+ *         schema:
+ *           type: object
+ *           properties:
+ *             idCommande:
+ *               type: number
+ *             date:
+ *               type: string
+ *             client:
+ *               type: number
+ *             restaurant:
+ *               type: number
+ *             items:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *                   price:
+ *                     type: number
+ *                   qty:
+ *                     type: number
+ *             total:
+ *               type: number
+ *             deliverer:
+ *               type: number
+ *             status:
+ *               type: string
+ *       401:
+ *         description: Token non valide ou expiré
+ *       500:
+ *         description: Erreur serveur
  */
-app.get("/commande", async (req, res) => {
+app.post(url + '/commande', async (req, res) => {
   try {
-    checkToken(req, res)
-    let pool = await sql.connect(config);
-    const request = pool.request();
-    let decodedToken = getInfoToken(req, res);
-    let email = decodedToken.email
-    request.input('email', sql.VarChar, email);
-    request.query("SELECT id_person FROM dbo.person WHERE email = @email")
-      .then(async (result) => {
-        if (result.recordset.length === 0) {
-          // Respond with 400 status and error message if no person found
-          res.status(400).json({ message: 'Aucune personne trouvée avec cet email' });
-        } else {
-          let id_person = result.recordset[0].id_person
-          const commande = await Commande.findOne({ client: id_person });
-          // Respond with 200 status and success message
-          res.status(200).json({ message: 'Commandes récupérées avec succès', commande: commande.toObject() });
-        }
-      }).catch((err) => {
-        // Respond with 500 status and error message
-        res.status(500).json({ message: err.message });
+      let decodedToken = getInfoToken(req, res);
+      let pool = await sql.connect(config);
+      const request = pool.request();
+      request.input('email', sql.VarChar, decodedToken.email);
+      const result = await request.query("SELECT id_person FROM dbo.person WHERE email = @email");
+      let total = 0;
+      req.body.items.forEach(item => {
+          if(!item.qty){
+            item.qty = 1
+          }
+          if(!item.price){
+            item.price = 1
+          }
+          total += item.price * item.qty;
       });
+      console.log(total)
+      const order = new Commande({
+          idCommande: req.body.idCommande,
+          date: new Date(),
+          client: result.recordset[0].id_person,
+          restaurant: req.body.restaurant,
+          items: req.body.items,
+          total: total,
+          deliverer: req.body.deliverer,
+          status: "En cours"
+      });
+      await order.save();
+      res.status(201).send(order);
   } catch (err) {
-    // Respond with 400 status and error message
-    res.status(400).json({ message: err.message });
+      res.status(500).send(err.message);
   }
 });
+
+
 
 //Récupère le nombre de commande
 /**
@@ -1020,7 +1117,7 @@ app.get("/commande", async (req, res) => {
  * /commande/count:
  *   get:
  *     tags:
- *       - restaurants
+ *       - Commande
  *     description: Retrieves the count of commande
  *     produces:
  *       - application/json
@@ -1040,7 +1137,7 @@ app.get("/commande", async (req, res) => {
  *             message:
  *               type: string
  */
-app.get("/commande/count", async (req, res) => {
+app.get(url + "/commande/count", async (req, res) => {
   checkToken(req, res)
   try {
     const count = await Commande.estimatedDocumentCount();
@@ -1056,7 +1153,7 @@ app.get("/commande/count", async (req, res) => {
  * /commande/count/{client}:
  *   get:
  *     tags:
- *       - restaurants
+ *       - Commande
  *     description: Retrieves the count of commande by client
  *     produces:
  *       - application/json
@@ -1082,7 +1179,7 @@ app.get("/commande/count", async (req, res) => {
  *             message:
  *               type: string
  */
-app.get("/commande/count/:client", async (req, res) => {
+app.get(url + "/commande/count/:client", async (req, res) => {
   checkToken(req, res)
   try {
     const count = await Commande.countDocuments({ client: req.params.client });
@@ -1098,7 +1195,7 @@ app.get("/commande/count/:client", async (req, res) => {
  * /commande/{idCommande}/status:
  *   get:
  *     tags:
- *       - restaurants
+ *       - Commande
  *     description: Retrieves the status of commande by idCommande
  *     produces:
  *       - application/json
@@ -1132,7 +1229,7 @@ app.get("/commande/count/:client", async (req, res) => {
  *             message:
  *               type: string
  */
-app.get("/commande/:idCommande/status", async (req, res) => {
+app.get(url + "/commande/:idCommande/status", async (req, res) => {
   checkToken(req, res)
   try {
     const idCommande = req.params.idCommande;
@@ -1152,7 +1249,7 @@ app.get("/commande/:idCommande/status", async (req, res) => {
  * /commande/{id}:
  *   put:
  *     tags:
- *       - restaurants
+ *       - Commande
  *     description: Updates a commande by id
  *     produces:
  *       - application/json
@@ -1227,7 +1324,7 @@ app.get("/commande/:idCommande/status", async (req, res) => {
  *       status:
  *         type: string
  */
-app.put("/commande/:id", async (req, res) => {
+app.put(url + "/commande/:id", async (req, res) => {
   checkToken(req, res)
   try {
     // Récupère l'id de la commande à mettre à jour à partir de la requête
@@ -1273,7 +1370,7 @@ app.put("/commande/:id", async (req, res) => {
 *        '400':
 *          description: Bad Request
 */
-app.get("/sponsorship", async (req, res) => {
+app.get(url + "/sponsorship", async (req, res) => {
   checkToken(req, res)
   let decodedToken = getInfoToken(req, res)
   let email = decodedToken.email
@@ -1417,7 +1514,7 @@ app.get("/sponsorship", async (req, res) => {
  *       500:
  *         description: Erreur interne du serveur
  */
-app.get("/restaurant/:id/stats/countAllTime", async (req, res) => {
+app.get(url + "/restaurant/:id/stats/countAllTime", async (req, res) => {
   try {
     const id = req.params.id
     const countAllTime = await Commande.countDocuments({ "restaurant": id });
@@ -1454,7 +1551,7 @@ app.get("/restaurant/:id/stats/countAllTime", async (req, res) => {
  *       500:
  *         description: Erreur interne du serveur
  */
-app.get("/restaurant/:id/stats/count24h", async (req, res) => {
+app.get(url + "/restaurant/:id/stats/count24h", async (req, res) => {
   try {
     const id = req.params.id
     const twentyFourHoursAgo = new Date(Date.now() - (24 * 60 * 60 * 1000));
@@ -1496,7 +1593,7 @@ app.get("/restaurant/:id/stats/count24h", async (req, res) => {
  *       500:
  *         description: Erreur interne du serveur
  */
-app.get("/restaurant/:id/stats/count72h", async (req, res) => {
+app.get(url + "/restaurant/:id/stats/count72h", async (req, res) => {
   try {
     const id = req.params.id
     const seventyTwoHoursAgo = new Date(Date.now() - (72 * 60 * 60 * 1000));
@@ -1537,7 +1634,7 @@ app.get("/restaurant/:id/stats/count72h", async (req, res) => {
  *       500:
  *         description: Erreur interne du serveur
  */
-app.get("/restaurant/:id/stats/count7days", async (req, res) => {
+app.get(url + "/restaurant/:id/stats/count7days", async (req, res) => {
   try {
     const id = req.params.id
     const sevenDaysAgo = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000));
@@ -1580,7 +1677,7 @@ app.get("/restaurant/:id/stats/count7days", async (req, res) => {
  *       500:
  *         description: Erreur interne du serveur
  */
-app.get("/client/:id/stats/count24h", async (req, res) => {
+app.get(url + "/client/:id/stats/count24h", async (req, res) => {
   try {
     const id = req.params.id
     const twentyFourHoursAgo = new Date(Date.now() - (24 * 60 * 60 * 1000));
@@ -1622,7 +1719,7 @@ app.get("/client/:id/stats/count24h", async (req, res) => {
  *       500:
  *         description: Erreur interne du serveur
  */
-app.get("/client/:id/stats/count72h", async (req, res) => {
+app.get(url + "/client/:id/stats/count72h", async (req, res) => {
   try {
     const id = req.params.id
     const seventyTwoHoursAgo = new Date(Date.now() - (72 * 60 * 60 * 1000));
@@ -1663,7 +1760,7 @@ app.get("/client/:id/stats/count72h", async (req, res) => {
  *       500:
  *         description: Erreur interne du serveur
  */
-app.get("/client/:id/stats/count7days", async (req, res) => {
+app.get(url + "/client/:id/stats/count7days", async (req, res) => {
   try {
     const id = req.params.id
     const sevenDaysAgo = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000));
@@ -1696,7 +1793,7 @@ app.get("/client/:id/stats/count7days", async (req, res) => {
 *       500:
 *         description: Erreur lors de l'obtention des commandes
 */
-app.get("/client/:id/stats/graph/ordersLast7d", async (req, res) => {
+app.get(url + "/client/:id/stats/graph/ordersLast7d", async (req, res) => {
   try {
     const id = req.params.id
     // Obtenir les commandes dans les 7 derniers jours
@@ -1757,7 +1854,7 @@ app.get("/client/:id/stats/graph/ordersLast7d", async (req, res) => {
 *       500:
 *         description: Erreur lors de l'obtention des commandes
 */
-app.get("/client/:id/stats/graph/ordersLastM", async (req, res) => {
+app.get(url + "/client/:id/stats/graph/ordersLastM", async (req, res) => {
   try {
     const id = req.params.id
     // Obtenir les commandes du mois en cours'
@@ -1817,7 +1914,7 @@ app.get("/client/:id/stats/graph/ordersLastM", async (req, res) => {
 *       500:
 *         description: Erreur lors de l'obtention des commandes
 */
-app.get("/client/:id/stats/graph/ordersLastY", async (req, res) => {
+app.get(url + "/client/:id/stats/graph/ordersLastY", async (req, res) => {
   try {
     const id = req.params.id
     // Obtenir les commandes de l'année en cours'
@@ -1878,7 +1975,7 @@ app.get("/client/:id/stats/graph/ordersLastY", async (req, res) => {
 *       500:
 *         description: Erreur lors de l'obtention des commandes
 */
-app.get("/client/:id/stats/graph/ordersLastYSortByQuarter", async (req, res) => {
+app.get(url + "/client/:id/stats/graph/ordersLastYSortByQuarter", async (req, res) => {
   try {
     const id = req.params.id
     // Obtenir les commandes de l'année en cours'
@@ -1939,7 +2036,7 @@ app.get("/client/:id/stats/graph/ordersLastYSortByQuarter", async (req, res) => 
 *       500:
 *         description: Erreur lors de l'obtention des commandes
 */
-app.get("/restaurant/:id/stats/graph/ordersLast7d", async (req, res) => {
+app.get(url + "/restaurant/:id/stats/graph/ordersLast7d", async (req, res) => {
   try {
     const id = req.params.id
     // Obtenir les commandes dans les 7 derniers jours
@@ -2004,7 +2101,7 @@ app.get("/restaurant/:id/stats/graph/ordersLast7d", async (req, res) => {
 *        '500':
 *          description: Erreur interne du serveur
 */
-app.get("/restaurant/:id/stats/graph/ordersLastM", async (req, res) => {
+app.get(url + "/restaurant/:id/stats/graph/ordersLastM", async (req, res) => {
   try {
     const id = req.params.id
     // Obtenir les commandes du mois en cours'
@@ -2064,7 +2161,7 @@ app.get("/restaurant/:id/stats/graph/ordersLastM", async (req, res) => {
 *       500:
 *         description: Erreur lors de l'obtention des commandes
 */
-app.get("/restaurant/:id/stats/graph/ordersLastY", async (req, res) => {
+app.get(url + "/restaurant/:id/stats/graph/ordersLastY", async (req, res) => {
   try {
     const id = req.params.id
     // Obtenir les commandes de l'année en cours'
@@ -2140,7 +2237,7 @@ app.get("/restaurant/:id/stats/graph/ordersLastY", async (req, res) => {
  *       500:
  *         description: Erreur serveur
  */
-app.get("/clients/:id/stats/graph/ordersLastYSortByQuarter", async (req, res) => {
+app.get(url + "/clients/:id/stats/graph/ordersLastYSortByQuarter", async (req, res) => {
   try {
     const id = req.params.id
     // Obtenir les commandes de l'année en cours'
@@ -2199,7 +2296,7 @@ app.get("/clients/:id/stats/graph/ordersLastYSortByQuarter", async (req, res) =>
  *       500:
  *         description: Erreur interne du serveur.
  */
-app.get("/commandes/stats/graph/ordersLast7d", async (req, res) => {
+app.get(url + "/commandes/stats/graph/ordersLast7d", async (req, res) => {
   try {
     // Obtenir les commandes dans les 7 derniers jours
     const sevenDaysAgo = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000));
@@ -2256,7 +2353,7 @@ app.get("/commandes/stats/graph/ordersLast7d", async (req, res) => {
 *        '500':
 *          description: Erreur interne du serveur
 */
-app.get("/commandes/stats/graph/ordersLastM", async (req, res) => {
+app.get(url + "/commandes/stats/graph/ordersLastM", async (req, res) => {
   try {
     // Obtenir les commandes du mois en cours'
     const oneMonthAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000));
@@ -2338,7 +2435,7 @@ app.get("/commandes/stats/graph/ordersLastM", async (req, res) => {
  *       500:
  *         description: Erreur interne du serveur
  */
-app.get("/commandes/stats/graph/ordersLastY", async (req, res) => {
+app.get(url + "/commandes/stats/graph/ordersLastY", async (req, res) => {
   try {
     // Obtenir les commandes de l'année en cours'
     const oneYearAgo = new Date(Date.now() - (365 * 24 * 60 * 60 * 1000));
@@ -2405,7 +2502,7 @@ app.get("/commandes/stats/graph/ordersLastY", async (req, res) => {
  *       500:
  *         description: Erreur interne du serveur
  */
-app.get("/commandes/stats/graph/ordersLastYSortByQuarter", async (req, res) => {
+app.get(url + "/commandes/stats/graph/ordersLastYSortByQuarter", async (req, res) => {
   try {
     // Obtenir les commandes de l'année en cours'
     const oneYearAgo = new Date(Date.now() - (365 * 24 * 60 * 60 * 1000));
@@ -2482,7 +2579,7 @@ app.get("/commandes/stats/graph/ordersLastYSortByQuarter", async (req, res) => {
  *       500:
  *         description: Erreur interne
  */
-app.post("/register/restaurateur", async (req, res) => {
+app.post(url + "/register/restaurateur", async (req, res) => {
   try {
     let data = req.body;
     let pool = await sql.connect(config);
@@ -2565,7 +2662,7 @@ app.post("/register/restaurateur", async (req, res) => {
  *       500:
  *         description: Erreur interne
  */
-app.post("/login/restaurateur", async (req, res) => {
+app.post(url + "/login/restaurateur", async (req, res) => {
   let data = req.body;
   let pool = await sql.connect(config);
 
@@ -2595,7 +2692,7 @@ app.post("/login/restaurateur", async (req, res) => {
  * /restaurant/name:
  *   put:
  *     tags:
- *       - Restaurateur
+ *       - Restaurant
  *     description: Met à jour les informations du restaurant.
  *     parameters:
  *       - name: email
@@ -2614,7 +2711,7 @@ app.post("/login/restaurateur", async (req, res) => {
  *       500:
  *         description: Erreur lors de la mise à jour des informations
  */
-app.put("/restaurant/name", async (req, res) => {
+app.put(url + "/restaurant/name", async (req, res) => {
   checkToken(req, res)
   let data = req.body;
 
@@ -2663,7 +2760,7 @@ app.put("/restaurant/name", async (req, res) => {
  *       500:
  *         description: Erreur lors de la suppression du compte
  */
-app.delete("/restaurateur", async (req, res) => {
+app.delete(url + "/restaurateur", async (req, res) => {
   checkToken(req, res)
   try {
     let pool = await sql.connect(config);
@@ -2706,7 +2803,7 @@ app.delete("/restaurateur", async (req, res) => {
  *       500:
  *         description: Erreur lors de la suppression du compte
  */
-app.delete("/restaurateur/:email", async (req, res) => {
+app.delete(url + "/restaurateur/:email", async (req, res) => {
   checkToken(req, res)
   try {
     let pool = await sql.connect(config);
@@ -2739,7 +2836,7 @@ app.delete("/restaurateur/:email", async (req, res) => {
  * /register/livreur:
  *   post:
  *     tags:
- *       - Livreur
+ *       - Connexion livreur
  *     description: Register a new livreur
  *     consumes:
  *       - application/json
@@ -2783,7 +2880,7 @@ app.delete("/restaurateur/:email", async (req, res) => {
  *         type: string
  *         format: password
  */
-app.post("/register/livreur", async (req, res) => {
+app.post(url + "/register/livreur", async (req, res) => {
   checkToken(req, res)
   try {
     let data = req.body;
@@ -2844,7 +2941,7 @@ app.post("/register/livreur", async (req, res) => {
  * /login/livreur:
  *   post:
  *     tags:
- *       - Livreur
+ *       - Connexion livreur
  *     description: Permet à un livreur de se connecter
  *     produces:
  *       - application/json
@@ -2867,7 +2964,7 @@ app.post("/register/livreur", async (req, res) => {
  *       500:
  *         description: Erreur interne du serveur
  */
-app.post("/login/livreur", async (req, res) => {
+app.post(url + "/login/livreur", async (req, res) => {
   checkToken(req, res)
   let data = req.body;
   let pool = await sql.connect(config);
@@ -2919,7 +3016,7 @@ app.post("/login/livreur", async (req, res) => {
  * @typedef {Object} StatutActivite
  * @property {string} statut_activite - Statut d'activité (actif ou inactif)
  */
-app.put("/livreur/activite", async (req, res) => {
+app.put(url + "/livreur/activite", async (req, res) => {
   checkToken(req, res)
   let data = req.body;
 
@@ -2963,7 +3060,7 @@ app.put("/livreur/activite", async (req, res) => {
  *        400:
  *          description: Erreur lors de la suppression du compte
  */
-app.delete("/livreur", async (req, res) => {
+app.delete(url + "/livreur", async (req, res) => {
   checkToken(req, res)
   try {
     let pool = await sql.connect(config);
@@ -3030,7 +3127,7 @@ app.delete("/livreur", async (req, res) => {
  *       500:
  *         description: Erreur lors de la mise à jour des informations
  */
-app.put("/user/:email", checkTokenA, async (req, res) => {
+app.put(url + "/user/:email", checkTokenA, async (req, res) => {
   let data = req.body;
 
   let email = req.params.email;
@@ -3078,7 +3175,7 @@ app.put("/user/:email", checkTokenA, async (req, res) => {
  *       500:
  *         description: Erreur lors de la suppression du compte
  */
-app.delete("/client/:email", checkTokenA, async (req, res) => {
+app.delete(url + "/client/:email", checkTokenA, async (req, res) => {
   try {
     let pool = await sql.connect(config);
     const request = pool.request();
@@ -3125,7 +3222,7 @@ app.delete("/client/:email", checkTokenA, async (req, res) => {
  *       500:
  *         description: Internal server error
  */
-app.get('/user/:email', checkTokenA, async (req, res) => {
+app.get(url + '/user/:email', checkTokenA, async (req, res) => {
   let pool = await sql.connect(config);
   const request = pool.request();
   const email = req.params.email
@@ -3158,7 +3255,7 @@ app.get('/user/:email', checkTokenA, async (req, res) => {
  *        500:
  *          description: internal server error
  */
-app.delete("/user/:email", checkTokenA, async (req, res) => {
+app.delete(url + "/user/:email", checkTokenA, async (req, res) => {
   try {
     let pool = await sql.connect(config);
     const request = pool.request();
@@ -3244,7 +3341,7 @@ app.delete("/user/:email", checkTokenA, async (req, res) => {
 *       500:
 *         description: Erreur lors de l'inscription de l'utilisateur
 */
-app.post("/register/", checkTokenA, async (req, res) => {
+app.post(url + "/register/", checkTokenA, async (req, res) => {
   try {
     let data = req.body;
     let pool = await sql.connect(config);
@@ -3342,7 +3439,7 @@ app.post("/register/", checkTokenA, async (req, res) => {
  *         type: string
  *         format: email
  */
-app.get('/users', checkTokenA, async (req, res) => {
+app.get(url + '/users', checkTokenA, async (req, res) => {
   let pool = await sql.connect(config);
   const request = pool.request();
   request.query("SELECT surname, name, birth, phone_number, email FROM dbo.person", (err, result) => {
@@ -3396,7 +3493,7 @@ app.get('/users', checkTokenA, async (req, res) => {
  *       500:
  *         description: Internal server error
  */
-app.post("/register/dev", async (req, res) => {
+app.post(url + "/register/dev", async (req, res) => {
   let data = req.body;
   try {
 
@@ -3508,7 +3605,7 @@ app.post("/register/dev", async (req, res) => {
  *       500:
  *         description: Internal server error
  */
-app.post("/login/dev", async (req, res) => {
+app.post(url + "/login/dev", async (req, res) => {
   let data = req.body;
   let pool = await sql.connect(config);
 
@@ -3577,7 +3674,7 @@ app.post("/login/dev", async (req, res) => {
  *       500:
  *         description: Internal server error
  */
-app.delete("/dev", async (req, res) => {
+app.delete(url + "/dev", async (req, res) => {
   try {
     let pool = await sql.connect(config);
     const request = pool.request();
@@ -3647,7 +3744,7 @@ app.delete("/dev", async (req, res) => {
  *       error_message:
  *         type: string
  */
-app.put("/logs/:id", async (req, res) => {
+app.put(url + "/logs/:id", async (req, res) => {
   try {
     const id = req.params.id;
     const data = req.body;
