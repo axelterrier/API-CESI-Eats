@@ -1,45 +1,13 @@
 {
-  "idCommande": 12,
-  "idClient": 12,
-  "idRestaurant" : 12,
+  "idRestaurant": 184,
   "menu": {
     "items": [
       {
-        "name": "test incrément",
-        "item_category": "plat",
-        "description": "Riz cuit à la vapeur avec des fruits de mer, des légumes et de la saffron",
-        "price": 25
-      },
-      {
-        "name": "Tortilla española",
-        "item_category": "Entrée",
-        "description": "Omelette épaisse à base de pommes de terre, d'oignons et d'oeufs",
+        "name": "Pho Bo",
+        "item_category": "Plat",
+        "description": "Un plat de nouilles de riz traditionnel vietnamien servi avec du boeuf et des herbes fraîches.",
         "price": 12
-      },
-      {
-        "name": "Gazpacho",
-        "item_category": "Entrée",
-        "description": "Soupe froide à base de tomates, concombre, poivrons et pain rassis, servie fraîche",
-        "price": 8
-      },
-      {
-        "name": "Churros con chocolate",
-        "item_category": "Dessert",
-        "description": "Tiges de pâte à churros frites, accompagnées d'une sauce au chocolat chaud pour tremper",
-        "price": 8
-      },
-      {
-        "name": "Sangria",
-        "item_category": "Boisson",
-        "description": "Boisson traditionnelle espagnole à base de vin rouge, de fruits et de sucre",
-        "price": 6
       }
-    ],
-    "restaurant_categories": [
-      "plats",
-      "entrées",
-      "desserts",
-      "boissons"
     ]
   }
 }

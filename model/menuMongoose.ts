@@ -7,9 +7,6 @@ const menuSchema = new mongoose.Schema({
     menu: {
         items: [{
             type: mongoose.Schema.Types.Mixed
-        }],
-        restaurant_categories: [{
-            type: String
         }]
     }
   });

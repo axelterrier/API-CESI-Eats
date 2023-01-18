@@ -629,7 +629,6 @@ app.post(url + "/menu", async (req, res) => {
     const result = await request.query("SELECT id_person FROM dbo.person WHERE email = @email");
 
     const newMenu = new Menu(req.body);
-    let menuNumber = await Menu.estimatedDocumentCount();
     newMenu.idRestaurant = result.recordset[0].id_person;
     const menu = await newMenu.save();
 
@@ -752,8 +751,6 @@ app.get(url + '/restaurants/name', async (req, res) => {
 });
 
 
-
-//Récupère le menu d'un restaurant avec son id
 /**
  * @swagger
  * /api/V1/menu/{id}:
@@ -795,7 +792,7 @@ app.get(url + '/restaurants/name', async (req, res) => {
 app.get(url + '/menu/:id', function (req, res) {
   checkToken(req, res)
   const menuId = req.params.id
-  Menu.findOne({ id: menuId }, (err, restaurant) => {
+  Menu.findOne({ idRestaurant: menuId }, (err, restaurant) => {
     if (err) return handleError(err);
     res.send(restaurant);
   });
@@ -942,54 +939,54 @@ app.post(url + "/commande", async (req, res) => {
   let decodedToken = getInfoToken(req, res);
   let email = decodedToken.email;
   try {
-      const start = Date.now();
-      let pool = await sql.connect(config);
-      const request = pool.request();
-      request.input('email', sql.VarChar, email);
-      let resultDeliverer = await request.query("SELECT id_person FROM dbo.deliverer WHERE statut_activite = 1");
-      if (resultDeliverer.recordset.length > 0) {
-          let result = await request.query("SELECT id_person FROM dbo.person WHERE email = @email");
-          let availableDeliverers = resultDeliverer.recordset;
-          let randomIndex = Math.floor(Math.random() * availableDeliverers.length);
-          let randomlySelectedDeliverer = availableDeliverers[randomIndex];
-          // Create new commande object from request body
-          let newCommande = new Commande(req.body);
-          // Get the count of commande in database
-          let documentNumber = await Commande.estimatedDocumentCount();
-          // Set idCommande and id_person to new commande
-          newCommande.idCommande = documentNumber;
-          newCommande.date = new Date();
-          newCommande.client = result.recordset[0].id_person;
-          newCommande.deliverer = randomlySelectedDeliverer.id_person;
-          // Save the commande in database
-          const elapsed = Date.now() - start;
-          await Perf.create({ route: '/commande', time: elapsed });
-          await newCommande.save();
-          // Respond with 201 status and success message
-          res.status(201).json({ message: 'Commande créée avec succès' });
+    const start = Date.now();
+    let pool = await sql.connect(config);
+    const request = pool.request();
+    request.input('email', sql.VarChar, email);
+    let resultDeliverer = await request.query("SELECT id_person FROM dbo.deliverer WHERE statut_activite = 1");
+    if (resultDeliverer.recordset.length > 0) {
+      let result = await request.query("SELECT id_person FROM dbo.person WHERE email = @email");
+      let availableDeliverers = resultDeliverer.recordset;
+      let randomIndex = Math.floor(Math.random() * availableDeliverers.length);
+      let randomlySelectedDeliverer = availableDeliverers[randomIndex];
+      // Create new commande object from request body
+      let newCommande = new Commande(req.body);
+      // Get the count of commande in database
+      let documentNumber = await Commande.estimatedDocumentCount();
+      // Set idCommande and id_person to new commande
+      newCommande.idCommande = documentNumber;
+      newCommande.date = new Date();
+      newCommande.client = result.recordset[0].id_person;
+      newCommande.deliverer = randomlySelectedDeliverer.id_person;
+      // Save the commande in database
+      const elapsed = Date.now() - start;
+      await Perf.create({ route: '/commande', time: elapsed });
+      await newCommande.save();
+      // Respond with 201 status and success message
+      res.status(201).json({ message: 'Commande créée avec succès' });
 
-          let log = new Logs({
-              logType: 'create commande',
-              timestamp: new Date(),
-              email: email,
-              success: true,
-              error_message: null
-          });
-          await log.save();
-      } else {
-          res.status(401).json({ message: 'Désolé, nous ne trouvons pas de livreur disponible dans votre zone géographique !' });
-      }
-  } catch (err) {
       let log = new Logs({
-          logType: 'create commande',
-          timestamp: new Date(),
-          email: email,
-          success: false,
-          error_message: err.message
+        logType: 'create commande',
+        timestamp: new Date(),
+        email: email,
+        success: true,
+        error_message: null
       });
       await log.save();
-      // Respond with 400 status and error message
-      res.status(400).json({ message: err.message });
+    } else {
+      res.status(401).json({ message: 'Désolé, nous ne trouvons pas de livreur disponible dans votre zone géographique !' });
+    }
+  } catch (err) {
+    let log = new Logs({
+      logType: 'create commande',
+      timestamp: new Date(),
+      email: email,
+      success: false,
+      error_message: err.message
+    });
+    await log.save();
+    // Respond with 400 status and error message
+    res.status(400).json({ message: err.message });
   }
 });
 
@@ -1351,13 +1348,6 @@ app.get(url + "/sponsorship", async (req, res) => {
       default:
         break;
     }
-
-
-
-
-
-
-
     sql.close()
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -2423,6 +2413,274 @@ app.get(url + "/commandes/stats/graph/ordersLastYSortByQuarter", async (req, res
   }
 });
 
+/**
+ * @swagger
+ * /api/V1/performances/stats/graph/PerfsSpeedLast7d:
+ *  get:
+ *    tags:
+ *      - Statistique
+ *    summary: Obtenir les performances dans les 7 derniers jours et calculer la vitesse moyenne pour chaque jour
+ *    produces:
+ *      - application/json
+ *    responses:
+ *      200:
+ *        description: Le tableau des vitesse moyenne pour chaque jour
+ *        schema:
+ *          type: object
+ *          properties:
+ *            day:
+ *              type: string
+ *              example: "2022-12-01"
+ *            time:
+ *              type: number
+ *              example: 0.5
+ *      500:
+ *        description: Erreur interne
+ */
+app.get(url + "/performances/stats/graph/PerfsSpeedLast7d", async (req, res) => {
+  try {
+    // Obtenir les performances dans les 7 derniers jours
+    const sevenDaysAgo = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000));
+    const performances = await Perf.find({
+      "date": { $gt: sevenDaysAgo },
+      "route": "/restaurants"
+    }).sort({ date: 1 });
+
+    // Compter le nombre de performances par jour
+    const performancesByDay = {};
+    performances.forEach(performance => {
+      const date = new Date(performance.date);
+      const day = date.toLocaleDateString();
+      if (performancesByDay[day]) {
+        performancesByDay[day].time += performance.time;
+        performancesByDay[day].count++;
+      } else {
+        performancesByDay[day] = {
+          time: performance.time,
+          count: 1
+        };
+      }
+    });
+    // Créer un tableau des jours manquants
+    const allDays = Array.from({ length: 7 }, (_, i) => new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toLocaleDateString());
+    // Ajouter les jours manquants à performancesByDay avec une valeur de 0
+    allDays.forEach(day => {
+      if (!performancesByDay[day]) {
+        performancesByDay[day] = {
+          time: 0,
+          count: 0
+        };
+      }
+    });
+    // Trier performancesByDay par jour
+    const sortedPerformancesByDay = {};
+    allDays.forEach(day => {
+      sortedPerformancesByDay[day] = performancesByDay[day];
+    });
+
+    // Calculer la vitesse moyenne pour chaque jour
+    const speedByDay = {};
+    allDays.forEach(day => {
+      if (sortedPerformancesByDay[day].count > 0) {
+        speedByDay[day] = sortedPerformancesByDay[day].time / sortedPerformancesByDay[day].count;
+      } else {
+        speedByDay[day] = 0;
+      }
+    });
+    res.json(speedByDay);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/V1/performances/stats/graph/PerfsSpeedLastM:
+ *  get:
+ *    tags:
+ *      - Statistique
+ *    summary: Obtenir les performances dans les 30 derniers jours et calculer la vitesse moyenne pour chaque jour
+ *    produces:
+ *      - application/json
+ *    responses:
+ *      200:
+ *        description: Le tableau des vitesse moyenne pour chaque jour
+ *        schema:
+ *          type: object
+ *          properties:
+ *            day:
+ *              type: string
+ *              example: "2022-12-01"
+ *            time:
+ *              type: number
+ *              example: 0.5
+ *      500:
+ *        description: Erreur interne
+ */
+app.get(url + "/performances/stats/graph/PerfsSpeedLastM", async (req, res) => {
+  try {
+    // Obtenir les performances dans les 30 derniers jours
+    const thirtyDaysAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000));
+    const performances = await Perf.find({
+      "date": { $gt: thirtyDaysAgo },
+      "route": "/restaurants"
+    }).sort({ date: 1 });
+
+    // Compter le nombre de performances par jour
+    const performancesByDay = {};
+    performances.forEach(performance => {
+      const date = new Date(performance.date);
+      const day = date.toLocaleDateString();
+      if (performancesByDay[day]) {
+        performancesByDay[day].time += performance.time;
+        performancesByDay[day].count++;
+      } else {
+        performancesByDay[day] = {
+          time: performance.time,
+          count: 1
+        };
+      }
+    });
+    // Créer un tableau des jours manquants
+    const allDays = Array.from({ length: 30 }, (_, i) => new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toLocaleDateString());
+    // Ajouter les jours manquants à performancesByDay avec une valeur de 0
+    allDays.forEach(day => {
+      if (!performancesByDay[day]) {
+        performancesByDay[day] = {
+          time: 0,
+          count: 0
+        };
+      }
+    });
+    // Trier performancesByDay par jour
+    const sortedPerformancesByDay = {};
+    allDays.forEach(day => {
+      sortedPerformancesByDay[day] = performancesByDay[day];
+    });
+    // Calculer la vitesse moyenne pour chaque jour
+    const speedByDay = {};
+    allDays.forEach(day => {
+      if (sortedPerformancesByDay[day].count > 0) {
+        speedByDay[day] = sortedPerformancesByDay[day].time / sortedPerformancesByDay[day].count;
+      } else {
+        speedByDay[day] = 0;
+      }
+    });
+    res.json(speedByDay);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/V1/performances/stats/graph/SuccessLoginLastM
+ *  get:
+ *    tags:
+ *      - Statistique
+ *    summary: Récupère les login de connexion ayant réusi dans le mois
+ *    produces:
+ *      - application/json
+ *    responses:
+ *      200:
+ *        description: Le tableau les logs de connexions pour chaque jour du mois
+ *        schema:
+ *          type: object
+ *          properties:
+ *            day:
+ *              type: string
+ *              example: "2022-12-01"
+ *            time:
+ *              type: number
+ *              example: 0.5
+ *      500:
+ *        description: Erreur interne
+ */
+app.get(url + "/performances/stats/graph/SuccessLoginLastM", async (req, res) => {
+  try {
+    // Obtenir les logs du mois en cours'
+    const oneMonthAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000));
+    const logs = await Logs.find({
+      "timestamp": { $gt: oneMonthAgo },
+      "logType": "connexion",
+      "success": true
+    }).sort({ timestamp: 1 });
+
+    // Compter le nombre de logs par jour
+    const logsByDay = {};
+    logs.forEach(log => {
+      const date = new Date(log.timestamp);
+      const day = date.toLocaleDateString();
+      if (logsByDay[day]) {
+        logsByDay[day]++;
+      } else {
+        logsByDay[day] = 1;
+      }
+    });
+
+    // Créer un tableau des jours manquants
+    const allDays = Array.from({ length: 30 }, (_, i) => new Date(oneMonthAgo.getTime() + (i * 24 * 60 * 60 * 1000)).toLocaleDateString());
+    // Ajouter les jours manquants à logsByDay avec une valeur de 0
+    allDays.forEach(day => {
+      if (!logsByDay[day]) {
+        logsByDay[day] = 0;
+      }
+    });
+    // Trier logsByDay par jour
+    const sortedlogsByDay = {};
+    allDays.forEach(day => {
+      sortedlogsByDay[day] = logsByDay[day];
+    });
+
+    res.json(sortedlogsByDay);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+//Get graph failed connexion logs last month
+app.get(url + "/performances/stats/graph/FailedLoginLastM", async (req, res) => {
+  try {
+    // Obtenir les logs du mois en cours'
+    const oneMonthAgo = new Date(Date.now() - (30 * 24 * 60 * 60 * 1000));
+    const logs = await Logs.find({
+      "timestamp": { $gt: oneMonthAgo },
+      "logType": "connexion",
+      "success": false
+    }).sort({ timestamp: 1 });
+
+    // Compter le nombre de logs par jour
+    const logsByDay = {};
+    logs.forEach(log => {
+      const date = new Date(log.timestamp);
+      const day = date.toLocaleDateString();
+      if (logsByDay[day]) {
+        logsByDay[day]++;
+      } else {
+        logsByDay[day] = 1;
+      }
+    });
+
+    // Créer un tableau des jours manquants
+    const allDays = Array.from({ length: 30 }, (_, i) => new Date(oneMonthAgo.getTime() + (i * 24 * 60 * 60 * 1000)).toLocaleDateString());
+    // Ajouter les jours manquants à logsByDay avec une valeur de 0
+    allDays.forEach(day => {
+      if (!logsByDay[day]) {
+        logsByDay[day] = 0;
+      }
+    });
+    // Trier logsByDay par jour
+    const sortedlogsByDay = {};
+    allDays.forEach(day => {
+      sortedlogsByDay[day] = logsByDay[day];
+    });
+
+    res.json(sortedlogsByDay);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 //#endregion
 
 //#region api restaurateur
@@ -3278,6 +3536,7 @@ app.post(url + "/register/", checkTokenA, async (req, res) => {
     res.status(500).send(error).end();
   }
 });
+
 
 /**
  * @swagger
